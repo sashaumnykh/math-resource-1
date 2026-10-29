@@ -1,0 +1,946 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Освободи переменную</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Golos+Text:wght@400;500;600;700&family=PT+Serif:ital,wght@0,400;0,700;1,400;1,700&display=swap">
+<style>
+/* Лист тетради в клетку: карта миссий → брифинг (теория) → задания; уравнения — фишки на «доске» */
+:root{
+  --paper:#f4f7fc; --grid:#dfe7f3; --sheet:#ffffff; --ink:#1c2541; --muted:#5a6580; --line:#d3dbea;
+  --pen:#2a52cf; --pen-ink:#ffffff; --pen-soft:#e6ecff; --red:#cf3f37; --red-soft:#fdebe9;
+  --ok:#137a51; --ok-soft:#def4ea; --hl:#ffdf3d; --hl-ink:#2e2600; --chip:#ffffff; --chip-b:#b7c4dd;
+  --shadow:0 1px 0 rgba(28,37,65,.06),0 8px 22px -14px rgba(28,37,65,.45);
+  --f-display:"Unbounded","Arial Black",sans-serif;
+  --f-body:"Golos Text","Segoe UI",Arial,sans-serif;
+  --f-math:"PT Serif",Georgia,"Times New Roman",serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#13201b; --grid:#1b2b25; --sheet:#192822; --ink:#e8f0ea; --muted:#9fb3a8; --line:#2d433a;
+  --pen:#8fb2ff; --pen-ink:#0f1a33; --pen-soft:#22324d; --red:#ff8378; --red-soft:#3b2524;
+  --ok:#62d6a0; --ok-soft:#173a2c; --hl:#f2d04a; --hl-ink:#262000; --chip:#21332c; --chip-b:#3e584d;
+  --shadow:0 1px 0 rgba(0,0,0,.2),0 10px 24px -14px rgba(0,0,0,.7); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#13201b; --grid:#1b2b25; --sheet:#192822; --ink:#e8f0ea; --muted:#9fb3a8; --line:#2d433a;
+  --pen:#8fb2ff; --pen-ink:#0f1a33; --pen-soft:#22324d; --red:#ff8378; --red-soft:#3b2524;
+  --ok:#62d6a0; --ok-soft:#173a2c; --hl:#f2d04a; --hl-ink:#262000; --chip:#21332c; --chip-b:#3e584d;
+  --shadow:0 1px 0 rgba(0,0,0,.2),0 10px 24px -14px rgba(0,0,0,.7); color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:17px;line-height:1.5;
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:26px 26px;min-height:100%}
+.wrap{max-width:940px;margin:0 auto;padding-inline:16px;padding-block:14px 60px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--pen);outline-offset:2px}
+
+/* header */
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 18px;justify-content:space-between;padding-block:6px 14px}
+.brand{display:flex;flex-direction:column;gap:2px;cursor:pointer;background:none;border:0;padding:0;text-align:left}
+.brand b{font-family:var(--f-display);font-weight:700;font-size:clamp(20px,4vw,26px);letter-spacing:-.01em;line-height:1.1}
+.brand b em{font-style:normal;background:var(--hl);color:var(--hl-ink);padding:0 .18em;border-radius:3px}
+.brand span{font-size:13px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.stats{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.pill{display:inline-flex;align-items:center;gap:6px;background:var(--sheet);border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:14px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pill .st{color:#e0a400}
+.pill.rank{font-weight:600}
+.navb{background:var(--sheet);border:1px solid var(--line);border-radius:999px;padding:5px 14px;font-size:14px;cursor:pointer}
+.navb[aria-pressed="true"]{background:var(--ink);color:var(--sheet);border-color:var(--ink)}
+
+/* map */
+.part{margin-top:22px}
+.part-h{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.part-h h2{font-family:var(--f-display);font-weight:500;font-size:clamp(17px,3.2vw,21px);margin:0;text-wrap:balance}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.mlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.mcard{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;align-items:start;text-align:left;background:var(--sheet);border:1px solid var(--line);border-radius:10px;padding:14px;cursor:pointer;box-shadow:var(--shadow);transition:transform .15s}
+.mcard:hover:not(:disabled){transform:translateY(-2px)}
+.mcard:disabled{cursor:not-allowed;opacity:.55;box-shadow:none}
+.mnum{grid-row:span 3;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font-family:var(--f-display);font-weight:700;font-size:16px;border:2px solid var(--ink)}
+.mcard.done .mnum{background:var(--ink);color:var(--sheet)}
+.mcard.boss .mnum{border-color:var(--red);color:var(--red)}
+.mcard.boss.done .mnum{background:var(--red);color:var(--sheet)}
+.mt{font-weight:700;line-height:1.25}
+.ms{font-size:14px;color:var(--muted);line-height:1.35}
+.mstars{font-size:15px;letter-spacing:2px;color:var(--line)}
+.mstars .on{color:#e0a400}
+.lock{font-size:13px;color:var(--muted)}
+.hero{background:var(--sheet);border:1px solid var(--line);border-radius:12px;padding:18px 18px 18px 30px;position:relative;box-shadow:var(--shadow)}
+.hero::before{content:"";position:absolute;left:16px;top:0;bottom:0;width:2px;background:var(--red);opacity:.55}
+.hero p{margin:0 0 8px;max-width:65ch}
+.hero .m{font-size:1.2em}
+.teacher{margin-top:28px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-size:14px;color:var(--muted)}
+.link{background:none;border:0;padding:0;color:var(--pen);text-decoration:underline;cursor:pointer;font-size:inherit}
+
+/* sheet */
+.mtop{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:10px}
+.mtop h1{font-family:var(--f-display);font-weight:500;font-size:clamp(18px,3.6vw,24px);margin:2px 0 0;text-wrap:balance;line-height:1.2}
+.prog{display:flex;gap:4px;margin-bottom:12px}
+.prog i{flex:1;height:7px;border-radius:4px;background:var(--line)}
+.prog i.ok{background:var(--ok)}.prog i.mid{background:#e0a400}.prog i.bad{background:var(--red)}.prog i.cur{background:var(--pen)}
+.sheet{background:var(--sheet);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:20px 18px 22px 34px;position:relative;min-width:0}
+.sheet::before{content:"";position:absolute;left:18px;top:0;bottom:0;width:2px;background:var(--red);opacity:.5}
+@media (max-width:520px){.sheet{padding:16px 12px 18px 22px}.sheet::before{left:10px}}
+.brief h2{font-family:var(--f-display);font-weight:500;font-size:clamp(18px,3.4vw,22px);margin:4px 0 12px;text-wrap:balance}
+.theory{max-width:70ch}
+.theory p{margin:0 0 12px}
+.theory ol,.theory ul{margin:0 0 12px;padding-left:1.3em}
+.theory li{margin-bottom:4px}
+.bnav{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;align-items:center}
+.skip{margin-left:auto;font-size:14px}
+
+/* math */
+.m{font-family:var(--f-math);font-size:1.12em;white-space:nowrap;font-variant-numeric:lining-nums}
+.m i{font-style:italic;font-weight:700}
+.fr{display:inline-flex;flex-direction:column;vertical-align:middle;text-align:center;font-size:.82em;line-height:1.05;margin:0 .1em}
+.fr>span:first-child{border-bottom:1.5px solid currentColor;padding:0 .15em}
+.tg{background:var(--hl);color:var(--hl-ink);padding:0 .25em;border-radius:3px;font-family:var(--f-math);font-style:italic;font-weight:700}
+.big{font-size:1.25em;margin:8px 0 14px;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+.arrow{color:var(--muted);font-size:1.1em}
+.note{font-family:var(--f-body);font-size:14px;color:var(--muted);white-space:normal}
+
+.rule{background:var(--pen-soft);border-radius:8px;padding:12px 14px;margin:12px 0}
+.rule-h{font-weight:700;margin-bottom:4px}
+.rule-h mark,.hlm{background:var(--hl);color:var(--hl-ink);padding:0 .2em;border-radius:3px}
+.good,.bad{border-radius:8px;padding:10px 14px;margin:10px 0}
+.good{background:var(--ok-soft)}
+.bad{background:var(--red-soft)}
+.good b:first-child{color:var(--ok)}.bad b:first-child{color:var(--red)}
+.steps{display:flex;flex-direction:column;gap:6px;margin:8px 0 12px;padding-left:12px;border-left:3px solid var(--line)}
+.st{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline}
+.st .m{font-size:1.2em}
+.pop{animation:pop .35s ease-out}
+@keyframes pop{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.tblw{overflow-x:auto;margin:6px 0 14px}
+table.t{border-collapse:collapse;font-size:15px;min-width:420px}
+table.t th,table.t td{border-bottom:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:middle}
+table.t th{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.yes{color:var(--ok);font-weight:700}.no{color:var(--red);font-weight:700}
+.machine{display:flex;align-items:center;gap:0;margin:10px 0 4px;flex-wrap:wrap}
+.mach-in,.mach-out{font-family:var(--f-math);font-style:italic;font-weight:700;font-size:1.3em;padding:6px 14px}
+.mach-box{border:2px solid var(--ink);border-radius:8px;padding:8px 18px;background:var(--hl);color:var(--hl-ink);position:relative}
+.mach-in::after,.mach-out::before{content:"→";font-style:normal;font-weight:400;color:var(--muted);margin:0 6px}
+.cap{font-size:14px;color:var(--muted)}
+.lab{background:var(--paper);border:1px dashed var(--chip-b);border-radius:8px;padding:12px 14px;margin:10px 0 14px}
+.lab input[type=range]{width:100%;max-width:360px;accent-color:var(--pen)}
+.lab-out{font-size:1.15em;margin-top:6px;font-variant-numeric:tabular-nums}
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch;margin:10px 0 14px;counter-reset:fl}
+.flow>div{flex:1 1 150px;border:1.5px solid var(--ink);border-radius:8px;padding:8px 10px;font-size:15px;line-height:1.35;min-width:0}
+.flow>div b{display:block;font-family:var(--f-display);font-weight:500;font-size:13px;margin-bottom:2px}
+.pairs{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+
+/* sys brace */
+.sys{display:inline-flex;align-items:stretch;gap:6px;margin:6px 0 10px;font-size:1.15em}
+.sys-br{width:12px;border:2px solid var(--ink);border-right:0;border-radius:10px 0 0 10px;position:relative}
+.sys-ln{display:flex;flex-direction:column;gap:4px;padding-block:2px}
+
+/* tasks */
+.thead{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+.streak{font-size:14px;font-weight:700;color:var(--red)}
+.q{font-size:1.06em;margin-bottom:14px;max-width:70ch}
+.q .m{font-size:1.18em}
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:10px}
+.opts.two{grid-template-columns:repeat(2,minmax(0,1fr));max-width:420px}
+.opt{background:var(--chip);border:2px solid var(--chip-b);border-radius:10px;padding:12px 14px;cursor:pointer;text-align:left;min-height:52px;font-size:16px;transition:border-color .12s,transform .12s}
+.opt .m{font-size:1.15em}
+.opt:hover:not(:disabled){border-color:var(--pen)}
+.opt.right{border-color:var(--ok);background:var(--ok-soft)}
+.opt.wrong{border-color:var(--red);background:var(--red-soft);opacity:.85}
+.opt:disabled{cursor:default}
+.shake{animation:shake .35s}
+@keyframes shake{20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
+.inrow{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.pre{font-size:1.3em}
+.inp{font-family:var(--f-math);font-size:20px;padding:9px 12px;border:2px solid var(--chip-b);border-radius:8px;background:var(--chip);color:var(--ink);width:min(100%,260px);min-width:0}
+.inp.sm{width:100px}
+.inp:focus{border-color:var(--pen);outline:none}
+.inp.okb{border-color:var(--ok)}.inp.badb{border-color:var(--red)}
+.btn{background:var(--pen);color:var(--pen-ink);border:0;border-radius:8px;padding:10px 18px;font-weight:600;cursor:pointer;min-height:44px}
+.btn:hover{filter:brightness(1.07)}
+.btn.ghost{background:transparent;color:var(--pen);border:1.5px solid var(--pen)}
+.btn:disabled{opacity:.45;cursor:default}
+.kp{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.kp button{min-width:44px;min-height:40px;border:1px solid var(--chip-b);background:var(--paper);border-radius:6px;cursor:pointer;font-family:var(--f-math);font-size:18px}
+.tip{font-size:14px;color:var(--muted);margin-top:8px}
+.fb{margin-top:16px;border-radius:10px;padding:12px 14px;border:1.5px solid var(--line)}
+.fb.ok{background:var(--ok-soft);border-color:var(--ok)}
+.fb.bad{background:var(--red-soft);border-color:var(--red)}
+.fb.info{background:var(--pen-soft);border-color:var(--pen)}
+.fb-t{font-weight:700;margin-bottom:4px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.fb-why{margin-bottom:10px}
+.fb .btn{margin-top:4px}
+.xp{font-family:var(--f-display);font-weight:700;font-size:13px;background:var(--hl);color:var(--hl-ink);border-radius:999px;padding:2px 9px}
+
+/* puzzle */
+.board{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:10px;padding:22px 10px;border-radius:12px;background:var(--paper);border:1.5px dashed var(--chip-b);margin-bottom:12px;min-height:96px}
+.side{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;min-width:60px}
+.eqs{font-family:var(--f-math);font-size:34px;font-weight:700;padding:0 6px;color:var(--red)}
+.chip{font-family:var(--f-math);font-size:24px;min-height:54px;min-width:54px;padding:6px 14px;border-radius:10px;border:2px solid var(--chip-b);background:var(--chip);cursor:pointer;box-shadow:0 3px 0 var(--chip-b);transition:transform .1s}
+.chip:hover{transform:translateY(-2px)}
+.chip:active{transform:translateY(1px);box-shadow:0 1px 0 var(--chip-b)}
+.chip i{font-weight:700}
+.chip.t{background:var(--hl);color:var(--hl-ink);border-color:var(--hl-ink)}
+.chip.sel{outline:3px solid var(--pen);outline-offset:2px}
+.chip.arr{animation:arr .45s ease-out}
+@keyframes arr{0%{transform:translateY(-14px) scale(.85);opacity:.2}60%{transform:translateY(2px) scale(1.06)}100%{transform:none;opacity:1}}
+.zero{font-family:var(--f-math);font-size:24px;color:var(--muted)}
+.pz-tools{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.pz-tools .btn{font-size:15px;padding:8px 14px}
+.ask{margin-bottom:10px}
+.ask:empty{display:none}
+.askq{margin-bottom:8px;font-weight:600}
+.ask .opts{max-width:520px}
+.draftw{border-top:1px dashed var(--line);padding-top:10px}
+.draftw summary{cursor:pointer;font-size:14px;color:var(--muted);font-weight:600}
+.draft{margin:8px 0 0;padding-left:1.6em;display:flex;flex-direction:column;gap:3px}
+.draft li .m{font-size:1.1em}
+.draft li::marker{color:var(--muted);font-size:13px}
+
+/* error-chain, order */
+.chain{list-style:none;padding:0;margin:0 0 12px;display:flex;flex-direction:column;gap:8px}
+.chain li{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cline{background:var(--chip);border:2px solid var(--chip-b);border-radius:8px;padding:8px 14px;cursor:pointer;min-height:48px}
+.cline .m{font-size:1.2em}
+.cline.right{border-color:var(--ok);background:var(--ok-soft)}
+.cline.wrong{border-color:var(--red);background:var(--red-soft)}
+.c0{padding:4px 2px}
+.c0 .m{font-size:1.2em}
+.ordbox{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.ordlist{counter-reset:o;display:flex;flex-direction:column;gap:6px;margin:0 0 12px;padding:0;list-style:none}
+.ordlist li{counter-increment:o;background:var(--ok-soft);border-radius:8px;padding:8px 12px;display:flex;gap:10px}
+.ordlist li::before{content:counter(o);font-family:var(--f-display);font-weight:700;color:var(--ok)}
+/* table task */
+.ttab td .inp{width:110px;font-size:18px;padding:6px 10px}
+/* guided */
+.gstep{border-left:3px solid var(--pen);padding:4px 0 6px 14px;margin:14px 0}
+.gstep.done{border-left-color:var(--ok)}
+.gst{font-family:var(--f-display);font-weight:500;font-size:15px;margin-bottom:8px}
+.gres{margin-top:8px}
+.gres .m{font-size:1.2em}
+.sfb{margin-top:8px;font-size:15px}
+.sfb.bad{color:var(--red)}.sfb.ok{color:var(--ok)}
+.lines{display:flex;flex-direction:column;gap:4px;margin:8px 0}
+.lines .m{font-size:1.15em}
+/* end */
+.end{text-align:center;padding:10px 0}
+.bigstars{font-size:54px;letter-spacing:8px;color:var(--line);line-height:1.1}
+.bigstars .on{color:#e0a400}
+.end h2{font-family:var(--f-display);font-weight:700;font-size:clamp(20px,4vw,28px);margin:8px 0}
+.end .row{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:16px}
+#confetti{position:fixed;inset:0;pointer-events:none;z-index:50;width:100%;height:100%}
+.refm{margin-bottom:26px}
+.refm h2.rt{font-family:var(--f-display);font-weight:500;font-size:20px;margin:0 0 10px}
+.refm h3{font-size:17px;margin:16px 0 8px}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <button class="brand" id="home" aria-label="К карте миссий"><b>Освободи <em>переменную</em></b><span>Системы уравнений · 8 класс</span></button>
+    <div class="stats">
+      <button class="navb" id="nav-map" aria-pressed="true">Миссии</button>
+      <button class="navb" id="nav-ref" aria-pressed="false">Справочник</button>
+      <span class="pill"><span class="st">★</span><span id="h-stars">0</span></span>
+      <span class="pill"><span id="h-xp">0</span> XP</span>
+      <span class="pill rank" id="h-rank">Новичок</span>
+    </div>
+  </header>
+  <main id="view"></main>
+</div>
+<canvas id="confetti" hidden></canvas>
+
+<script>
+/* ================= дроби и линейные выражения ================= */
+const gcd=(a,b)=>{a=Math.abs(a);b=Math.abs(b);while(b){[a,b]=[b,a%b]}return a||1};
+function F(n,d=1){if(d<0){n=-n;d=-d}const g=gcd(n,d);return{n:n/g,d:d/g}}
+const fa=(p,q)=>F(p.n*q.d+q.n*p.d,p.d*q.d), fs=(p,q)=>F(p.n*q.d-q.n*p.d,p.d*q.d),
+      fm=(p,q)=>F(p.n*q.n,p.d*q.d), fd=(p,q)=>F(p.n*q.d,p.d*q.n), fneg=p=>F(-p.n,p.d),
+      fz=p=>p.n===0, feq=(p,q)=>p.n===q.n&&p.d===q.d, fabs=p=>F(Math.abs(p.n),p.d), ONE=F(1);
+const lin=(c=0,x=0,y=0)=>({c:typeof c==='number'?F(c):c,x:typeof x==='number'?F(x):x,y:typeof y==='number'?F(y):y});
+const lAdd=(a,b)=>({c:fa(a.c,b.c),x:fa(a.x,b.x),y:fa(a.y,b.y)});
+const lScale=(a,k)=>({c:fm(a.c,k),x:fm(a.x,k),y:fm(a.y,k)});
+const lEq=(a,b)=>feq(a.c,b.c)&&feq(a.x,b.x)&&feq(a.y,b.y);
+const lConst=a=>fz(a.x)&&fz(a.y);
+function lMul(a,b){if(lConst(a))return lScale(b,a.c);if(lConst(b))return lScale(a,b.c);throw'nonlinear'}
+function lDiv(a,b){if(!lConst(b)||fz(b.c))throw'div';return lScale(a,fd(ONE,b.c))}
+
+function parseLin(src){
+  const s=String(src).replace(/\s+/g,'').replace(/[−–—]/g,'-').replace(/[·×]/g,'*').replace(/:/g,'/').replace(/,/g,'.')
+    .replace(/[хХ]/g,'x').replace(/[уУ]/g,'y').toLowerCase();
+  let i=0;const pk=()=>s[i];
+  function num(){const m=/^\d+(\.\d+)?/.exec(s.slice(i));if(!m)return null;i+=m[0].length;const[a,b='']=m[0].split('.');return F(parseInt(a+b,10),10**b.length)}
+  function factor(){const ch=pk();
+    if(ch==='+'){i++;return factor()}
+    if(ch==='-'){i++;return lScale(factor(),F(-1))}
+    if(ch==='('){i++;const e=expr();if(pk()!==')')throw'br';i++;return e}
+    if(ch==='x'||ch==='y'){i++;const l=lin();l[ch]=ONE;return l}
+    const n=num();if(n)return lin(n);throw'sym'}
+  function term(){let v=factor();for(;;){const ch=pk();
+    if(ch==='*'){i++;v=lMul(v,factor())}else if(ch==='/'){i++;v=lDiv(v,factor())}
+    else if(ch==='('||ch==='x'||ch==='y'||(ch&&/\d/.test(ch))){v=lMul(v,factor())}else break}return v}
+  function expr(){let v=term();while(pk()==='+'||pk()==='-'){const op=s[i++];const t=term();v=op==='+'?lAdd(v,t):lAdd(v,lScale(t,F(-1)))}return v}
+  if(!s.length)throw'empty';const r=expr();if(i!==s.length)throw'end';return r}
+
+/* ================= вывод математики ================= */
+const fnum=f=>f.d===1?String(Math.abs(f.n)):`<span class="fr"><span>${Math.abs(f.n)}</span><span>${f.d}</span></span>`;
+const numHTML=f=>(f.n<0?'−':'')+fnum(f);
+function termHTML(k,v,first){const a=fabs(k);let body=v==='1'?fnum(a):(feq(a,ONE)?'':fnum(a))+`<i>${v}</i>`;
+  const sign=first?(k.n<0?'−':''):(k.n<0?' − ':' + ');return sign+body}
+const termsHTML=ts=>ts.length?ts.map((t,i)=>termHTML(t.k,t.v,i===0)).join(''):'0';
+function linTerms(l){const vt=['x','y'].filter(v=>!fz(l[v])).map(v=>({k:l[v],v}));const ct=fz(l.c)?[]:[{k:l.c,v:'1'}];
+  if(!vt.length)return ct;if(vt[0].k.n<0&&ct.length&&l.c.n>0)return[...ct,...vt];return[...vt,...ct]}
+const linHTML=l=>termsHTML(linTerms(l));
+const fmtMath=s=>s.replace(/\{([^{}]+)\/([^{}]+)\}/g,'<span class="fr"><span>$1</span><span>$2</span></span>')
+  .replace(/[xy]/g,'<i>$&</i>').replace(/-/g,'−').replace(/\*/g,'·');
+const m=s=>`<span class="m">${fmtMath(s)}</span>`;
+const mh=h=>`<span class="m">${h}</span>`;
+const eqTerms=eq=>['x','y'].filter(u=>!fz(eq[u])).map(u=>({k:eq[u],v:u}));
+const eqHTML=eq=>mh(`${termsHTML(eqTerms(eq))} = ${numHTML(eq.c)}`);
+function sysHTML(sys){const ls=sys.show||sys.eqs.map(eqHTML);
+  return `<div class="sys"><div class="sys-br"></div><div class="sys-ln">${ls.map(l=>`<div>${l}</div>`).join('')}</div></div>`}
+
+/* ================= утилиты ================= */
+const $=s=>document.querySelector(s);
+const rnd=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+const nz=(a,b)=>{let v=0;while(v===0)v=rnd(a,b);return v};
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const clone=o=>JSON.parse(JSON.stringify(o));
+const lkey=l=>[l.c,l.x,l.y].map(f=>f.n+'/'+f.d).join(',');
+const other=v=>v==='x'?'y':'x';
+const vI=v=>`<span class="m"><i>${v}</i></span>`;
+
+function parseSide(s){s=s.replace(/\s/g,'').replace(/−/g,'-');if(s==='0'||!s)return[];
+  return s.replace(/-/g,'+-').split('+').filter(Boolean).map(tok=>{const mm=/^(-?)(\d*)([xy]?)$/.exec(tok);
+    let n=mm[2]===''?1:parseInt(mm[2],10);if(mm[1])n=-n;return{k:F(n),v:mm[3]||'1'}})}
+function parseEq(s){const[a,b]=s.split('=');return{L:parseSide(a),R:parseSide(b)}}
+const eqStrHTML=e=>mh(`${termsHTML(e.L)} = ${termsHTML(e.R)}`);
+const mkEq=(o,c)=>({x:F(o.x),y:F(o.y),c:F(c)});
+
+/* ================= состояние ================= */
+const KEY='osvobodi_peremennuyu_v1';
+let S=(()=>{try{const v=JSON.parse(localStorage.getItem(KEY));if(v&&v.stars)return v}catch(e){}return{stars:{},xp:0,all:false}})();
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+const RANKS=[[0,'Новичок'],[6,'Ученик переноса'],[15,'Освободитель'],[25,'Мастер выражений'],[34,'Магистр подстановки']];
+function updateHeader(){const st=Object.values(S.stars).reduce((a,b)=>a+b,0);
+  $('#h-stars').textContent=`${st} / ${MISSIONS.length*3}`;$('#h-xp').textContent=S.xp;
+  let r=RANKS[0][1];RANKS.forEach(([n,t])=>{if(st>=n)r=t});$('#h-rank').textContent=r}
+
+/* ================= генераторы ================= */
+function genSign(){
+  const t=Math.random()<.7?'y':'x',w=other(t);
+  const kw=nz(-8,8),useC=Math.random()<.35,tc=useC?nz(-9,9):0,rc=nz(-12,12);
+  const T=lin();T[w]=F(kw);T.c=F(tc);const Rr=lin(rc);
+  let left=[{k:ONE,v:t},{k:F(kw),v:w}];if(useC)left.push({k:F(tc),v:'1'});
+  left=Math.random()<.5?left:[left[1],left[0],...left.slice(2)];
+  const ans=lAdd(Rr,lScale(T,F(-1)));
+  const cands=[ans,lAdd(Rr,T),lScale(lAdd(Rr,T),F(-1)),lAdd(lScale(Rr,F(-1)),lScale(T,F(-1))),lAdd(lScale(Rr,F(-1)),T)];
+  if(useC){const a2=lin(fs(Rr.c,T.c));a2[w]=T[w];cands.push(a2)}
+  const seen=new Set,opts=[];cands.forEach(c=>{const k=lkey(c);if(!seen.has(k)&&opts.length<4){seen.add(k);opts.push(c)}});
+  return{type:'choice',q:`Перенеси всё лишнее от ${vI(t)} в правую часть:<div class="big">${mh(termsHTML(left)+' = '+numHTML(Rr.c))}</div>`,
+    opts:opts.map(o=>mh(`<i>${t}</i> = ${linHTML(o)}`)),ans:0,
+    why:`Каждый перенесённый член меняет знак: ${mh(termsHTML(left.filter(x=>x.v!==t)))} → ${mh(termsHTML(left.filter(x=>x.v!==t).map(x=>({k:fneg(x.k),v:x.v}))))}. Число справа остаётся каким было.`,
+    hint:'Найди члены рядом с буквой. Их знаки при переносе меняются, а число справа не трогаем.'}
+}
+function genWrite(){
+  const t=Math.random()<.65?'y':'x',w=other(t);
+  const kt=pick([1,1,-1,-1,2,-2,3,-3]);let kw=nz(-6,6),c=rnd(-12,12);
+  if(Math.abs(kt)>1){kw=kt*nz(-3,3);c=kt*rnd(-5,5)}
+  const T={k:F(kt),v:t},W={k:F(kw),v:w},C={k:F(c),v:'1'};
+  const form=rnd(0,3);let L,Rs;
+  if(form===0){L=[T,W];Rs=c?[C]:[]}
+  else if(form===1){L=[W,T];Rs=c?[C]:[]}
+  else if(form===2){L=[T];Rs=[...(c?[C]:[]),{k:F(-kw),v:w}]}
+  else{L=[T,W,...(c?[{k:F(-c),v:'1'}]:[])];Rs=[]}
+  const ans=lin(fd(F(c),F(kt)));ans[w]=fd(F(-kw),F(kt));
+  return{type:'input',kind:'lin',t,ans,q:`Вырази ${vI(t)} через ${vI(w)}:<div class="big">${eqStrHTML({L,R:Rs})}</div>`,
+    why:explainExpr(L,Rs,t),hint:'Сначала перенеси всё, кроме буквы, в другую часть (меняя знаки). Потом раздели на число перед буквой.'}
+}
+function explainExpr(L,Rs,t){
+  // строит цепочку решения по шагам для пояснения
+  let st={L:clone(L),R:clone(Rs)};const lines=[eqStrHTML(st)];
+  const sideT=st.L.some(x=>x.v===t)?'L':'R',o=sideT==='L'?'R':'L';
+  const rest=st[sideT].filter(x=>x.v!==t);
+  if(rest.length){st[sideT]=st[sideT].filter(x=>x.v===t);rest.forEach(r=>{const nk=fneg(F(r.k.n,r.k.d));const j=st[o].findIndex(d=>d.v===r.v);
+    if(j>=0){st[o][j].k=fa(st[o][j].k,nk);if(fz(st[o][j].k))st[o].splice(j,1)}else st[o].push({k:nk,v:r.v})});lines.push(eqStrHTML(st))}
+  if(sideT==='R'){st={L:st.R,R:st.L};lines.push(eqStrHTML(st))}
+  const k=st.L[0].k;if(!feq(k,ONE)){st.L=[{k:ONE,v:t}];st.R=st.R.map(x=>({k:fd(x.k,k),v:x.v}));lines.push(eqStrHTML(st)+` <span class="note">разделили всё на ${numHTML(k)}</span>`)}
+  return `<div class="lines">${lines.map(l=>`<div>${l}</div>`).join('')}</div>`}
+
+function genSys(strictSub){
+  for(let g=0;g<800;g++){
+    const x0=rnd(-3,6),y0=rnd(-3,6);if(x0===0&&y0===0)continue;
+    const tv=Math.random()<.6?'y':'x',ov=other(tv);
+    const e1={x:0,y:0};e1[tv]=pick([1,1,-1]);e1[ov]=nz(-5,5);
+    const e2={x:nz(-5,5),y:nz(-5,5)};
+    if(Math.abs(e2.x)===1&&Math.abs(e2.y)===1)continue;
+    if(strictSub&&e2[tv]===1)continue;
+    if(e1.x*e2.y-e1.y*e2.x===0)continue;
+    const c1=e1.x*x0+e1.y*y0,c2=e2.x*x0+e2.y*y0;if(c1===0)continue;
+    if(Math.abs(c1)>30||Math.abs(c2)>40)continue;
+    let eqs=[mkEq(e1,c1),mkEq(e2,c2)];if(Math.random()<.4)eqs.reverse();
+    return{eqs,sol:{x:F(x0),y:F(y0)}}}
+  return{eqs:[mkEq({x:1,y:1},7),mkEq({x:2,y:-1},2)],sol:{x:F(3),y:F(4)}}}
+const isUnit=k=>k.d===1&&Math.abs(k.n)===1;
+function pickExpr(sys){for(const v of['y','x'])for(const e of[0,1])if(isUnit(sys.eqs[e][v]))return{e,v};return{e:0,v:'y'}}
+function exprFrom(eq,v){const w=other(v),k=eq[v],ex=lin(fd(eq.c,k));ex[w]=fd(fneg(eq[w]),k);return ex}
+function subHTML(eq,v,ex,mode){const parts=[];let first=true;
+  for(const u of['x','y']){const k=eq[u];if(fz(k))continue;
+    if(u===v){if(mode==='nobr'){const ts=linTerms(ex);parts.push(termHTML(fm(k,ts[0].k),ts[0].v,first)+ts.slice(1).map(r=>termHTML(r.k,r.v,false)).join(''))}
+      else{const a=fabs(k);const sign=k.n<0?(first?'−':' − '):(first?'':' + ');parts.push(`${sign}${feq(a,ONE)?'':fnum(a)}(${linHTML(ex)})`)}}
+    else parts.push(termHTML(k,u,first));first=false}
+  return mh(`${parts.join('')} = ${numHTML(eq.c)}`)}
+function subOptions(eqs,e,v,ex){const j=1-e,w=other(v);const ok=subHTML(eqs[j],v,ex,'ok');const list=[ok];
+  const k=eqs[j][v];if(linTerms(ex).length>1&&!feq(k,ONE))list.push(subHTML(eqs[j],v,ex,'nobr'));
+  list.push(subHTML(eqs[e],v,ex,'ok'));const ex2=clone(ex);ex2[w]=fneg(ex[w]);list.push(subHTML(eqs[j],v,ex2,'ok'));
+  return[...new Set(list)].slice(0,4)}
+const ordTo=j=>j===0?'в 1-е':'во 2-е', ordFrom=e=>e===0?'из 1-го':'из 2-го';
+function plugExprHTML(ex,w,w0){const ts=linTerms(ex);const vs=w0.n<0?`(${numHTML(w0)})`:numHTML(w0);
+  return ts.map((t,i)=>{if(t.v==='1')return termHTML(t.k,'1',i===0);const a=fabs(t.k);const sign=t.k.n<0?(i===0?'−':' − '):(i===0?'':' + ');
+    return sign+(feq(a,ONE)?'':fnum(a)+'·')+vs}).join('')}
+function plugEqHTML(eq,sol){const ts=eqTerms(eq);let val=F(0);
+  const s=ts.map((t,i)=>{const v=sol[t.v];val=fa(val,fm(t.k,v));const vs=v.n<0?`(${numHTML(v)})`:numHTML(v);const a=fabs(t.k);
+    const sign=t.k.n<0?(i===0?'−':' − '):(i===0?'':' + ');return sign+(feq(a,ONE)?'':fnum(a)+'·')+vs}).join('');
+  return{html:mh(`${s} = ${numHTML(val)}`),ok:feq(val,eq.c),val}}
+function solveData(sys){const{e,v}=pickExpr(sys);const w=other(v),j=1-e,ex=exprFrom(sys.eqs[e],v),q=sys.eqs[j];
+  const A=fa(q[w],fm(q[v],ex[w])),K=fm(q[v],ex.c),Cc=fs(q.c,K),w0=fd(Cc,A);
+  const exp=[];for(const u of['x','y']){if(fz(q[u]))continue;if(u===v)linTerms(ex).forEach(t=>exp.push({k:fm(q[v],t.k),v:t.v}));else exp.push({k:q[u],v:u})}
+  return{e,v,w,j,ex,q,A,K,Cc,w0,exp,v0:sys.sol[v]}}
+function solveLines(sys){const d=solveData(sys);const L=[];
+  L.push(`1) ${ordFrom(d.e)} уравнения: ${mh(`<i>${d.v}</i> = ${linHTML(d.ex)}`)}`);
+  L.push(`2) подставляем ${ordTo(d.j)}: ${subHTML(d.q,d.v,d.ex,'ok')}`);
+  L.push(`3) раскрываем скобки: ${mh(termsHTML(d.exp.filter(t=>!fz(t.k)))+' = '+numHTML(d.q.c))}`);
+  L.push(`&nbsp;&nbsp;&nbsp;приводим подобные: ${mh(termHTML(d.A,d.w,true)+(fz(d.K)?'':termHTML(d.K,'1',false))+' = '+numHTML(d.q.c))} → ${mh(termHTML(d.A,d.w,true)+' = '+numHTML(d.Cc))} → ${mh(`<i>${d.w}</i> = ${numHTML(d.w0)}`)}`);
+  L.push(`4) находим ${d.v}: ${mh(`<i>${d.v}</i> = ${plugExprHTML(d.ex,d.w,d.w0)} = ${numHTML(d.v0)}`)}`);
+  L.push(`5) ответ: ${mh(`(${numHTML(sys.sol.x)}; ${numHTML(sys.sol.y)})`)}`);
+  return`<div class="lines">${L.map(l=>`<div>${l}</div>`).join('')}</div>`}
+function genSubChoice(){const sys=genSys(true);const{e,v}=pickExpr(sys);const ex=exprFrom(sys.eqs[e],v);const opts=subOptions(sys.eqs,e,v,ex);
+  return{type:'choice',q:`${sysHTML(sys)}<div>${ordFrom(e)[0].toUpperCase()+ordFrom(e).slice(1)} уравнения выразили ${mh(`<i>${v}</i> = ${linHTML(ex)}`)}. Что получится после подстановки ${ordTo(1-e)}?</div>`,
+    opts,ans:0,why:`Вместо ${vI(v)} пишем всё выражение <b>в скобках</b> и подставляем в <b>другое</b> уравнение. Число перед ${vI(v)} умножается на всю скобку.`,
+    hint:'Проверь: подставили в другое уравнение? Выражение взято в скобки? Знаки внутри скобки как в выражении?'}}
+
+/* ================= задания: конструкторы ================= */
+const C=(q,opts,ans,why,hint)=>({type:'choice',q,opts,ans,why,hint});
+const YN=(q,yes,why)=>({type:'choice',q,opts:['Да','Нет'],ans:yes?0:1,keep:true,why});
+const IN=(q,t,a,why,hint)=>({type:'input',kind:'lin',q,t,ans:parseLin(a),why,hint});
+const NUM=(q,a,why,hint,pre)=>({type:'input',kind:'num',q,ans:typeof a==='number'?F(a):a,why,hint,pre});
+const PZ=(eq,t,signQ=true,divQ=true,q)=>Object.assign({type:'puzzle',t,signQ,divQ,q},parseEq(eq));
+const ER=(start,lines,wrong,why)=>({type:'error',start,lines,wrong,why});
+
+/* ================= МИССИИ ================= */
+const MISSIONS=[
+/* ---------- 1 ---------- */
+{id:'m1',part:1,title:'Что значит «выразить»',sub:'Уравнение с двумя буквами и формула-машина',
+brief:[
+{h:'Уравнение с двумя буквами',html:`<p>В уравнении ${m('x + y = 10')} две переменные. Ему подходит не одно число, а <b>пара чисел</b>: если ${m('x = 3')}, то ${m('y = 7')}; если ${m('x = 1')}, то ${m('y = 9')}.</p>
+<div class="lab"><label for="m1s"><b>Двигай x</b> и смотри, каким становится y:</label><br><input type="range" id="m1s" min="-5" max="15" value="3"><div class="lab-out" id="m1o"></div></div>
+<p>Заметь: чтобы найти ${m('y')}, ты каждый раз делаешь одно и то же — <b>из 10 вычитаешь x</b>. Это правило и есть «y, выраженный через x».</p>`,
+init:root=>{const s=root.querySelector('#m1s'),o=root.querySelector('#m1o');const u=()=>{const x=+s.value,y=10-x,xs=x<0?`(${x})`:x;
+  o.innerHTML=`${m('x = '+x)} → ${m('y = 10 - '+xs+' = '+y)} &nbsp; <span class="note">проверка:</span> ${m(x+' + '+(y<0?'('+y+')':y)+' = 10')} <span class="yes">✓</span>`.replace(/-(\d)/g,'−$1')};s.oninput=u;u()}},
+{h:'Выразить y через x',html:`<p>Это значит переписать уравнение так, чтобы ${m('y')} стоял <b>один</b>, а в другой части было то, по чему его считать:</p>
+<div class="big">${m('x + y = 10')} <span class="arrow">→</span> ${m('y = 10 - x')}</div>
+<div class="machine"><span class="mach-in">x</span><span class="mach-box">${m('10 - x')}</span><span class="mach-out">y</span></div>
+<p class="cap">Формула-машина: кладёшь любое x — получаешь подходящий y.</p>
+<div class="rule"><div class="rule-h"><mark>y выражен через x</mark>, если:</div><ol><li>${m('y')} стоит <b>один</b> в своей части (обычно слева);</li><li>перед ${m('y')} нет ни числа, ни минуса — коэффициент равен 1;</li><li>в другой части ${m('y')} нет: только числа и ${m('x')}.</li></ol></div>`},
+{h:'Похоже, но не то',html:`<div class="tblw"><table class="t"><tr><th>Запись</th><th>y выражен через x?</th><th>Почему</th></tr>
+<tr><td>${m('y = 3x + 1')}</td><td class="yes">да</td><td>y один, справа только x и число</td></tr>
+<tr><td>${m('y + x = 5')}</td><td class="no">нет</td><td>рядом с y стоит x</td></tr>
+<tr><td>${m('2y = 4x')}</td><td class="no">нет</td><td>перед y число 2</td></tr>
+<tr><td>${m('-y = x - 5')}</td><td class="no">нет</td><td>перед y минус, это коэффициент −1</td></tr>
+<tr><td>${m('y = 8 - 2y')}</td><td class="no">нет</td><td>справа тоже есть y</td></tr>
+<tr><td>${m('x = 4 - y')}</td><td>нет, это <b>x через y</b></td><td>один стоит x</td></tr></table></div>
+<p>Выразить можно и ${m('x')} через ${m('y')}: из ${m('x + y = 10')} получаем ${m('x = 10 - y')}. Слово <b>«через»</b> подсказывает, какая буква останется в другой части.</p>`}],
+tasks:()=>[
+C('В какой записи <b>y выражен через x</b>?',[m('y = 5 - 2x'),m('y + 2x = 5'),m('2y = 5 - x'),m('-y = 2x - 5')],0,'y стоит один, без числа и без минуса, а справа только x и число.','Проверь три условия: y один, перед ним ничего, справа нет y.'),
+YN(`${m('y = 4x - 1')}. Выражен ли y через x?`,true,'Да: y один, коэффициент 1, справа только x и число.'),
+YN(`${m('3y = x + 6')}. Выражен ли y через x?`,false,'Нет: перед y стоит 3. Нужно ещё разделить обе части на 3.'),
+YN(`${m('y = 2x + y - 3')}. Выражен ли y через x?`,false,'Нет: в правой части тоже есть y.'),
+C(`${m('x = 3y + 2')}. Что здесь выражено?`,['y через x','x через y','ничего не выражено'],1,'Один слева стоит x, а справа есть y. Значит, x выражен через y.'),
+YN(`${m('-y = x + 4')}. Выражен ли y через x?`,false,'Нет: перед y стоит минус. Это коэффициент −1, а нужен 1.'),
+NUM(`${m('y = 10 - x')}. Чему равен y, если ${m('x = 3')}?`,7,`${m('y = 10 - 3 = 7')}`,'Подставь 3 вместо x.',m('y =')),
+NUM(`${m('y = 2x + 1')}. Найди y при ${m('x = 4')}.`,9,`${m('y = 2*4 + 1 = 9')}`,'2·4 = 8, затем +1.',m('y =')),
+NUM(`${m('y = 5 - 3x')}. Найди y при ${m('x = -2')}.`,11,`${m('y = 5 - 3*(-2) = 5 + 6 = 11')}. Отрицательное число подставляем в скобках.`,'−3·(−2) = +6.',m('y ='))]},
+
+/* ---------- 2 ---------- */
+{id:'m2',part:1,title:'Перенос через «=»',sub:'Почему знак меняется и как не ошибиться',
+brief:[
+{h:'Почему знак меняется',html:`<p>Уравнение — это весы в равновесии. Если с обеих чаш снять одинаковый груз, весы останутся в равновесии.</p>
+<div class="steps"><div class="st">${m('y + 3 = 10')}</div>
+<div class="st rv">${m('y + 3 - 3 = 10 - 3')} <span class="note">отняли 3 от обеих частей</span></div>
+<div class="st rv">${m('y = 10 - 3')} <span class="note">слева +3 и −3 дали ноль</span></div>
+<div class="st rv">Смотри: <b>+3</b> будто перепрыгнул через «=» и стал <b>−3</b>.</div></div>
+<div class="rule rv"><div class="rule-h"><mark>Правило переноса</mark></div>Любой член можно перенести в другую часть уравнения, <b>поменяв его знак</b> на противоположный: плюс → минус, минус → плюс.</div>`},
+{h:'С буквами — то же самое',html:`<div class="steps"><div class="st">${m('y - 2x = 5')}</div>
+<div class="st rv">${m('y - 2x + 2x = 5 + 2x')} <span class="note">прибавили 2x к обеим частям</span></div>
+<div class="st rv">${m('y = 5 + 2x')} <span class="note">−2x перешёл вправо и стал +2x</span></div></div>
+<p>Знак члена — тот, что стоит <b>прямо перед ним</b>. Перед первым членом знака не видно — значит, там плюс.</p>
+<div class="tblw"><table class="t"><tr><th>Было</th><th>Переносим</th><th>Стало</th></tr>
+<tr><td>${m('y + 4x = 9')}</td><td>${m('+4x')} → ${m('-4x')}</td><td>${m('y = 9 - 4x')}</td></tr>
+<tr><td>${m('-3x + y = 1')}</td><td>${m('-3x')} → ${m('+3x')}</td><td>${m('y = 1 + 3x')}</td></tr>
+<tr><td>${m('y + 7 = 3x')}</td><td>${m('+7')} → ${m('-7')}</td><td>${m('y = 3x - 7')}</td></tr>
+<tr><td>${m('y + 2x - 6 = 0')}</td><td>${m('+2x')} и ${m('-6')}</td><td>${m('y = -2x + 6')}</td></tr></table></div>
+<div class="rule">Переносим только то, что <b>мешает</b>. Остальные члены остаются на месте со своими знаками.</div>
+<div class="bad"><b>Частая ошибка:</b> ${m('y + 4x = 9')} → ${m('y = 9 + 4x')}. Член перенесли, а знак поменять забыли.</div>`}],
+tasks:()=>Array.from({length:10},genSign)},
+
+/* ---------- 3 ---------- */
+{id:'m3',part:1,title:'Освободи y!',sub:'Игра с фишками: переносим всё, что мешает',
+brief:[
+{h:'Как играть',html:`<p>Уравнение лежит на доске фишками. Наша буква подсвечена <span class="tg">жёлтым</span>.</p>
+<ol><li>Нажми на фишку, которая <b>мешает</b> букве, — она перепрыгнет через «=». Выбери, каким станет её знак.</li>
+<li>Если буква осталась одна, но справа, — нажми <b>«Поменять части местами»</b>.</li>
+<li>Победа: буква одна в левой части, перед ней нет числа.</li></ol>
+<p>Под доской копится черновик — так решение выглядит в тетради. Перепиши его, если учитель попросит.</p>`},
+{h:'Стратегия',html:`<div class="rule"><div class="rule-h"><mark>План освобождения</mark></div><ol><li>Найди нужную букву.</li><li>Всё остальное из её части — в другую часть, меняя знак.</li><li>Если буква справа — поменяй части местами.</li></ol></div>
+<div class="steps"><div class="st">${m('8 = y + x')} <span class="note">y справа, рядом с ним x</span></div>
+<div class="st rv">${m('8 - x = y')} <span class="note">перенесли +x влево, стал −x</span></div>
+<div class="st rv">${m('y = 8 - x')} <span class="note">поменяли части местами — знаки не меняются</span></div></div>
+<div class="good rv"><b>Важно:</b> когда меняем части местами, ничего не переносим, поэтому знаки остаются прежними.</div>`}],
+tasks:()=>[
+PZ('y+3x=7','y',false,false,'Разминка: нажми на фишку рядом с <span class="tg">y</span>. Знак поменяется сам — посмотри как.'),
+PZ('2x+y=9','y'),PZ('y-4x=1','y'),PZ('5+y=2x','y'),PZ('y+2x-3=0','y'),PZ('8=y+x','y'),PZ('x+y=10','x'),PZ('y-x+4=0','y'),
+IN(`Теперь без фишек. Вырази y через x: <div class="big">${m('y + 5x = 12')}</div>`,'y','12-5x',`${m('y = 12 - 5x')}: +5x перенесли вправо, он стал −5x.`,'+5x переходит вправо со сменой знака.'),
+IN(`Вырази y через x: <div class="big">${m('-6 + y = 3x')}</div>`,'y','3x+6',`${m('y = 3x + 6')}: −6 перенесли вправо, оно стало +6.`,'−6 переходит вправо и становится +6.')]},
+
+/* ---------- 4 ---------- */
+{id:'m4',part:1,title:'Минус перед буквой',sub:'Что делать с −y',
+brief:[
+{h:'Ловушка −y',html:`<p>Возьмём ${m('x - y = 5')}. Перенесём x вправо:</p>
+<div class="big">${m('-y = 5 - x')}</div>
+<p>Кажется, готово? Нет! Перед y стоит минус — это <b>коэффициент −1</b>. Мы нашли не y, а «минус y». Есть два способа довести дело до конца.</p>
+<div class="steps"><div class="st"><b>Способ 1.</b> Разделить обе части на −1 (поменять знак у всех членов):</div>
+<div class="st rv">${m('-y = 5 - x')} → ${m('y = -5 + x')} → ${m('y = x - 5')}</div>
+<div class="st rv"><b>Способ 2.</b> Перенести −y вправо (станет +y), а 5 — влево:</div>
+<div class="st rv">${m('x - y = 5')} → ${m('x - 5 = y')} → ${m('y = x - 5')}</div></div>
+<div class="good rv"><b>Оба способа</b> дают один ответ. Выбирай тот, что понятнее тебе.</div>`},
+{h:'Меняем знаки у ВСЕХ',html:`<div class="rule"><div class="rule-h"><mark>Правило</mark></div>Если ${m('-y = A')}, то ${m('y = -A')}: знак меняется у <b>каждого</b> члена правой части.</div>
+<div class="tblw"><table class="t"><tr><th>Было</th><th>Стало</th></tr>
+<tr><td>${m('-y = 3 - 2x')}</td><td>${m('y = -3 + 2x = 2x - 3')}</td></tr>
+<tr><td>${m('-y = -x - 4')}</td><td>${m('y = x + 4')}</td></tr>
+<tr><td>${m('-y = 7x')}</td><td>${m('y = -7x')}</td></tr>
+<tr><td>${m('-x = 4 - 5y')}</td><td>${m('x = -4 + 5y = 5y - 4')}</td></tr></table></div>
+<div class="bad"><b>Ошибка 1:</b> ${m('-y = 3 - 2x')} → ${m('y = 3 - 2x')}. Минус просто «потеряли».</div>
+<div class="bad"><b>Ошибка 2:</b> ${m('-y = 3 - 2x')} → ${m('y = -3 - 2x')}. Знак поменяли только у первого члена.</div>`}],
+tasks:()=>[
+C(`${m('-y = 3 - 2x')}. Чему равен y?`,[m('y = 2x - 3'),m('y = 3 - 2x'),m('y = -3 - 2x'),m('y = 3 + 2x')],0,`Меняем знаки у всех: ${m('y = -3 + 2x = 2x - 3')}.`,'Знак меняется у каждого члена справа.'),
+C(`${m('-y = x + 7')}. Чему равен y?`,[m('y = -x - 7'),m('y = x + 7'),m('y = x - 7'),m('y = -x + 7')],0,`${m('y = -x - 7')}: оба члена поменяли знак.`,'Поменяй знак и у x, и у 7.'),
+C(`${m('-x = 4 - 5y')}. Чему равен x?`,[m('x = 5y - 4'),m('x = 4 - 5y'),m('x = -4 - 5y'),m('x = 4 + 5y')],0,`${m('x = -4 + 5y = 5y - 4')}.`,'Знак меняется у каждого члена.'),
+PZ('x-y=5','y'),PZ('3x-y=2','y'),PZ('4-y=x','y'),PZ('-y+2x=7','y'),PZ('2x-y-1=0','y'),PZ('-x+3y=4','x'),
+IN(`Вырази y через x: <div class="big">${m('6x - y = 1')}</div>`,'y','6x-1',`${m('-y = 1 - 6x')} → ${m('y = -1 + 6x = 6x - 1')}.`,'После переноса получится −y. Не забудь поменять знаки у всех членов.'),
+IN(`Вырази y через x: <div class="big">${m('2 - y = 5x')}</div>`,'y','2-5x',`${m('-y = 5x - 2')} → ${m('y = -5x + 2 = 2 - 5x')}.`,'Перенеси 2 вправо, затем разберись с минусом перед y.')]},
+
+/* ---------- 5 ---------- */
+{id:'m5',part:1,title:'Коэффициент: дели всех',sub:'Когда перед буквой стоит число',
+brief:[
+{h:'Делим каждый член',html:`<p>В уравнении ${m('2y = 8 - 4x')} y ещё не один: его держит число 2. Делим <b>обе части</b> на 2, а в правой части — <b>каждый член</b>:</p>
+<div class="steps"><div class="st">${m('2y = 8 - 4x')}</div>
+<div class="st rv">${m('{2y/2} = {8/2} - {4x/2}')} <span class="note">каждый член получил «÷2»</span></div>
+<div class="st rv">${m('y = 4 - 2x')}</div></div>
+<div class="bad rv"><b>Частая ошибка:</b> ${m('y = 4 - 4x')}. Разделили только 8, а про 4x забыли.</div>
+<div class="rule rv"><div class="rule-h"><mark>Правило</mark></div>Делим на число, которое стоит перед буквой, <b>вместе с его знаком</b>. Делится каждый член другой части.</div>`},
+{h:'Дроби и минусы',html:`<p><b>Если не делится нацело</b>, получится дробь — это нормально:</p>
+<div class="big">${m('3y = 7 - 2x')} <span class="arrow">→</span> ${m('y = {7/3} - {2/3}x')} <span class="note">или</span> ${m('y = {7 - 2x/3}')}</div>
+<p>Оба ответа верные. При вводе можно писать <b>(7-2x)/3</b> или <b>7/3-2/3x</b>.</p>
+<p><b>Если коэффициент отрицательный</b>, делим на отрицательное число, и знаки меняются у всех:</p>
+<div class="steps"><div class="st">${m('-2y = 6 - 4x')}</div><div class="st rv">${m('y = {6/-2} - {4x/-2}')}</div><div class="st rv">${m('y = -3 + 2x = 2x - 3')}</div></div>
+<div class="rule rv"><div class="rule-h"><mark>Полный алгоритм выражения</mark></div><ol><li>Перенести всё лишнее в другую часть, меняя знаки.</li><li>Если буква справа — поменять части местами.</li><li>Разделить <b>все</b> члены на коэффициент перед буквой.</li></ol></div>`}],
+tasks:()=>[
+C(`${m('2y = 10 - 6x')}. Чему равен y?`,[m('y = 5 - 3x'),m('y = 5 - 6x'),m('y = 10 - 3x'),m('y = 8 - 6x')],0,`Каждый член делим на 2: ${m('10 : 2 = 5')}, ${m('6x : 2 = 3x')}.`,'Делится каждый член, не только число.'),
+C(`${m('4y = 8x + 12')}. Чему равен y?`,[m('y = 2x + 3'),m('y = 8x + 3'),m('y = 2x + 12'),m('y = 4x + 8')],0,`${m('8x : 4 = 2x')}, ${m('12 : 4 = 3')}.`,'Раздели на 4 и 8x, и 12.'),
+PZ('2y+4x=8','y'),PZ('3y-6x=9','y'),PZ('-2y=6-4x','y'),PZ('4x-2y=8','y'),PZ('3x+3y=12','x'),PZ('5x+2y=10','y'),
+C(`${m('-3y = 9 - 6x')}. Чему равен y?`,[m('y = 2x - 3'),m('y = 3 - 2x'),m('y = -3 - 6x'),m('y = 9 + 2x')],0,`Делим на −3: ${m('9 : (-3) = -3')}, ${m('-6x : (-3) = 2x')}. ${m('y = -3 + 2x = 2x - 3')}.`,'Делим на −3, знаки меняются у всех.'),
+IN(`Вырази y через x: <div class="big">${m('5y = 15 - 10x')}</div>`,'y','3-2x',`${m('y = 3 - 2x')}.`,'Раздели оба члена на 5.'),
+IN(`Вырази <b>x</b> через y: <div class="big">${m('2x + 4y = 8')}</div>`,'x','4-2y',`${m('2x = 8 - 4y')} → ${m('x = 4 - 2y')}.`,'Перенеси 4y вправо, затем раздели всё на 2.'),
+IN(`Вырази <b>x</b> через y: <div class="big">${m('3y - x = 2')}</div>`,'x','3y-2',`${m('-x = 2 - 3y')} → ${m('x = -2 + 3y = 3y - 2')}.`,'Перед x стоит минус — это коэффициент −1.')]},
+
+/* ---------- 6 ---------- */
+{id:'m6',part:1,title:'Найди ошибку',sub:'Учимся проверять чужие (и свои) решения',
+brief:[{h:'Четыре главные ошибки',html:`<p>Почти все ошибки при выражении — одни и те же. Если знаешь их в лицо, легко поймать.</p>
+<div class="bad"><b>1. Не поменяли знак при переносе.</b><br>${m('3x + y = 11')} → ${m('y = 11 + 3x')} ✗ &nbsp; правильно: ${m('y = 11 - 3x')}</div>
+<div class="bad"><b>2. Разделили не все члены.</b><br>${m('2y = 6 - 4x')} → ${m('y = 3 - 4x')} ✗ &nbsp; правильно: ${m('y = 3 - 2x')}</div>
+<div class="bad"><b>3. Потеряли минус перед буквой.</b><br>${m('-y = 7 - x')} → ${m('y = 7 - x')} ✗ &nbsp; правильно: ${m('y = x - 7')}</div>
+<div class="bad"><b>4. Забыли невидимый плюс.</b><br>${m('y - 5 = 2x')} → ${m('y = 2x - 5')} ✗ &nbsp; −5 при переносе становится +5: ${m('y = 2x + 5')}</div>
+<div class="rule"><div class="rule-h"><mark>Как проверить себя</mark></div>Возьми любое x, например ${m('x = 1')}. Посчитай y по своей формуле и подставь оба числа в исходное уравнение. Если равенство верное, ответ скорее всего правильный.</div>`}],
+tasks:()=>[
+ER('3x + y = 11',['y = 11 + 3x'],0,`+3x при переносе должен стать −3x: ${m('y = 11 - 3x')}.`),
+ER('2y = 6 - 4x',['y = {6/2} - 4x','y = 3 - 4x'],0,`На 2 нужно разделить и 4x: ${m('y = 3 - 2x')}.`),
+ER('x - y = 7',['-y = 7 - x','y = 7 - x'],1,`Из ${m('-y = 7 - x')} следует ${m('y = -7 + x = x - 7')}: меняем знаки у всех.`),
+ER('4x + 2y = 10',['2y = 10 - 4x','y = 5 - 4x'],1,`Второй шаг: ${m('4x : 2 = 2x')}, поэтому ${m('y = 5 - 2x')}.`),
+ER('y - 5 = 2x',['y = 2x - 5'],0,`−5 переносится вправо и становится +5: ${m('y = 2x + 5')}.`),
+ER('5x - y = 3',['-y = 3 - 5x','y = -3 + 5x','y = 5x - 3'],-1,'Здесь всё верно: перенос со сменой знака, затем деление на −1, затем переставили члены.'),
+ER('6 - 2y = 4x',['-2y = 4x - 6','y = -2x + 3'],-1,`Всё верно: делим на −2, ${m('4x : (-2) = -2x')}, ${m('-6 : (-2) = 3')}.`),
+ER('x + 3y = 9',['x = 9 + 3y'],0,`+3y переходит вправо со знаком минус: ${m('x = 9 - 3y')}.`)]},
+
+/* ---------- 7 ---------- */
+{id:'m7',part:1,title:'Выгодная буква',sub:'Какую переменную выражать проще',
+brief:[{h:'Выбираем с умом',html:`<p>Из одного уравнения можно выразить любую букву. Но одна дорога гладкая, а другая — с дробями.</p>
+<div class="tblw"><table class="t"><tr><th>${m('3x + y = 7')}</th><th>Получится</th><th></th></tr>
+<tr><td>выразить y</td><td>${m('y = 7 - 3x')}</td><td class="yes">без дробей</td></tr>
+<tr><td>выразить x</td><td>${m('x = {7 - y/3}')}</td><td class="no">дробь</td></tr></table></div>
+<div class="rule"><div class="rule-h"><mark>Правило выбора</mark></div><ol><li>Ищи букву с коэффициентом <b>1</b> или <b>−1</b> — её выражать проще всего.</li><li>Если таких нет, бери букву, на коэффициент которой делятся все остальные числа: в ${m('2x + 4y = 6')} удобно выразить x: ${m('x = 3 - 2y')}.</li></ol></div>
+<p>Коэффициент −1 тоже хороший: ${m('2x - y = 4')} → ${m('y = 2x - 4')}. Знаки поменяли — и никаких дробей.</p>`}],
+tasks:()=>{const V=(eq)=>[`${vI('y')} — выразить y через x`,`${vI('x')} — выразить x через y`];return[
+C(`${m('3x + y = 7')}. Какую букву удобнее выразить?`,V(),0,'У y коэффициент 1, дробей не будет.'),
+IN(`Вырази y через x: <div class="big">${m('3x + y = 7')}</div>`,'y','7-3x',`${m('y = 7 - 3x')}`),
+C(`${m('x + 5y = 12')}. Какую букву удобнее выразить?`,V(),1,'У x коэффициент 1.'),
+IN(`Вырази x через y: <div class="big">${m('x + 5y = 12')}</div>`,'x','12-5y',`${m('x = 12 - 5y')}`),
+C(`${m('2x - y = 4')}. Какую букву удобнее выразить?`,V(),0,'У y коэффициент −1: поменяем знаки, и дробей не будет.'),
+IN(`Вырази y через x: <div class="big">${m('2x - y = 4')}</div>`,'y','2x-4',`${m('-y = 4 - 2x')} → ${m('y = 2x - 4')}`,'Получится −y, не забудь поменять знаки.'),
+C(`${m('-x + 4y = 3')}. Какую букву удобнее выразить?`,V(),1,'У x коэффициент −1.'),
+IN(`Вырази x через y: <div class="big">${m('-x + 4y = 3')}</div>`,'x','4y-3',`${m('-x = 3 - 4y')} → ${m('x = 4y - 3')}`),
+C(`${m('2x + 4y = 6')}. Какую букву удобнее выразить?`,V(),1,'Все числа делятся на 2 (коэффициент при x), поэтому x выразится без дробей.'),
+IN(`Вырази x через y: <div class="big">${m('2x + 4y = 6')}</div>`,'x','3-2y',`${m('2x = 6 - 4y')} → ${m('x = 3 - 2y')}`)]}},
+
+/* ---------- 8 ---------- */
+{id:'m8',part:1,title:'Пиши сам',sub:'Десять уравнений: вводи ответ с клавиатуры',
+brief:[{h:'Как вводить ответ',html:`<p>Теперь ты сам выражаешь букву и пишешь ответ. Уравнения каждый раз новые.</p>
+<div class="tblw"><table class="t"><tr><th>Хочу записать</th><th>Набираю</th></tr>
+<tr><td>${m('7 - 3x')}</td><td><b>7-3x</b></td></tr><tr><td>${m('2y + 5')}</td><td><b>2y+5</b></td></tr>
+<tr><td>${m('{7 - 2x/3}')}</td><td><b>(7-2x)/3</b></td></tr><tr><td>${m('-x - 4')}</td><td><b>-x-4</b></td></tr></table></div>
+<p>Порядок членов неважен: ${m('7 - 3x')} и ${m('-3x + 7')} засчитаются одинаково.</p>
+<div class="rule"><div class="rule-h"><mark>Шпаргалка</mark></div><ol><li>Перенеси всё, кроме буквы, меняя знаки.</li><li>Буква справа? Поменяй части местами.</li><li>Раздели <b>все</b> члены на коэффициент (вместе со знаком).</li></ol></div>`}],
+tasks:()=>Array.from({length:10},genWrite)},
+
+/* ---------- 9 ---------- */
+{id:'m9',part:1,title:'Формула-машина',sub:'Подставляем числа и выражения',
+brief:[
+{h:'Подставляем число',html:`<p>Когда буква выражена, формула работает как машина: подставил x — получил y.</p>
+<div class="steps"><div class="st">${m('y = 7 - 3x')}, ${m('x = 2')}</div><div class="st rv">${m('y = 7 - 3*2 = 7 - 6 = 1')}</div></div>
+<div class="rule"><div class="rule-h"><mark>Отрицательные — в скобки</mark></div>${m('x = -2')}: ${m('y = 7 - 3*(-2) = 7 + 6 = 13')}. Без скобок легко потерять знак.</div>`},
+{h:'Подставляем выражение',html:`<p>Вместо буквы можно подставить не только число, но и <b>целое выражение</b>. Это главный ход метода подстановки.</p>
+<div class="steps"><div class="st">${m('y = x + 2')} и ${m('3x + y = 10')}</div>
+<div class="st rv">${m('3x + (x + 2) = 10')} <span class="note">вместо y написали x + 2 в скобках</span></div>
+<div class="st rv">${m('4x + 2 = 10')}, ${m('4x = 8')}, ${m('x = 2')} <span class="note">осталась одна буква — решаем!</span></div></div>
+<div class="good rv"><b>Скобки обязательны.</b> Если перед y стоит число или минус, оно умножается на всё выражение: ${m('2x - 3y')} при ${m('y = 4 - x')} даёт ${m('2x - 3(4 - x)')}.</div>`}],
+tasks:()=>[
+{type:'table',q:`Заполни таблицу по формуле ${m('y = 7 - 3x')}.`,col:['x','y'],rows:[[0,7],[1,4],[2,1],[-1,10]],why:`${m('7 - 3*(-1) = 7 + 3 = 10')}.`},
+{type:'table',q:`Заполни таблицу по формуле ${m('y = 2x - 5')}.`,col:['x','y'],rows:[[0,-5],[3,1],[-2,-9]],why:`${m('2*(-2) - 5 = -4 - 5 = -9')}.`},
+{type:'table',q:`Теперь наоборот: ${m('x = 4 - 2y')}. Найди x.`,col:['y','x'],rows:[[0,4],[1,2],[-3,10]],why:`${m('4 - 2*(-3) = 4 + 6 = 10')}.`},
+{type:'table',q:`Формула с дробью: ${m('y = {6 - 2x/3}')}.`,col:['x','y'],rows:[[0,2],[3,0],[-3,4]],why:`${m('x = -3')}: ${m('{6 + 6/3} = 4')}.`},
+C(`${m('y = x + 2')}. Подставь это в ${m('3x + y = 10')}.`,[m('3x + (x + 2) = 10'),m('3x + x = 10'),m('3(x + 2) = 10'),m('x + 2 = 10')],0,'Вместо y пишем всё выражение x + 2.'),
+C(`${m('y = 4 - x')}. Подставь это в ${m('2x - 3y = 8')}.`,[m('2x - 3(4 - x) = 8'),m('2x - 3*4 - x = 8'),m('2x - 3 + 4 - x = 8'),m('2(4 - x) - 3y = 8')],0,'−3 умножается на всю скобку, поэтому скобки обязательны.','Вместо y — выражение в скобках, число перед y остаётся.')]},
+
+/* ---------- 10 ---------- */
+{id:'m10',part:2,title:'Метод подстановки',sub:'Что такое система и как её решать',
+brief:[
+{h:'Система уравнений',html:`<p>Система — это два уравнения, которые должны выполняться <b>одновременно</b>. Записывают с фигурной скобкой:</p>
+${sysHTML({show:[m('x + y = 7'),m('x - y = 3')]})}
+<p><b>Решение системы</b> — пара чисел ${m('(x; y)')}, которая подходит в <b>оба</b> уравнения. Проверь пары:</p>
+<div class="pairs" id="m10p"></div><div class="lab-out" id="m10o"><span class="note">Нажми на пару.</span></div>`,
+init:root=>{const P=[[5,2],[6,1],[4,3],[8,5]];const box=root.querySelector('#m10p'),o=root.querySelector('#m10o');
+  box.innerHTML=P.map((p,i)=>`<button class="opt" data-i="${i}">${m('('+p[0]+'; '+p[1]+')')}</button>`).join('');
+  box.onclick=ev=>{const b=ev.target.closest('.opt');if(!b)return;const[x,y]=P[+b.dataset.i];const a=x+y===7,c=x-y===3;
+    o.innerHTML=`${m(x+' + '+y+' = '+(x+y))} ${a?'<span class="yes">✓</span>':'<span class="no">✗</span>'} &nbsp; ${m(x+' - '+y+' = '+(x-y))} ${c?'<span class="yes">✓</span>':'<span class="no">✗</span>'}<br>${a&&c?'<b class="yes">Подходит в оба — это решение!</b>':'<b class="no">Не подходит хотя бы в одно — не решение.</b>'}`}}},
+{h:'Идея подстановки',html:`<p>В обоих уравнениях ${m('y')} — <b>одно и то же число</b>. Если из первого уравнения узнали, чему равен y «через x», можно во втором вместо y написать это выражение. Тогда во втором останется <b>только x</b>, а такое уравнение мы решать умеем.</p>
+<div class="steps"><div class="st">${m('x + y = 7')} <span class="arrow">→</span> ${m('y = 7 - x')} <span class="note">выразили из 1-го</span></div>
+<div class="st rv">${m('x - (7 - x) = 3')} <span class="note">подставили во 2-е</span></div>
+<div class="st rv">${m('x - 7 + x = 3')}, ${m('2x = 10')}, ${m('x = 5')}</div>
+<div class="st rv">${m('y = 7 - 5 = 2')} <span class="note">вернулись в формулу-машину</span></div>
+<div class="st rv"><b>Ответ:</b> ${m('(5; 2)')}</div></div>`},
+{h:'Алгоритм: пять шагов',html:`<div class="flow"><div><b>1 · Выразить</b>из одного уравнения одну букву (выбери выгодную)</div><div><b>2 · Подставить</b>в <u>другое</u> уравнение, выражение — в скобках</div><div><b>3 · Решить</b>уравнение с одной буквой</div><div><b>4 · Найти</b>вторую букву по формуле из шага 1</div><div><b>5 · Проверить</b>и записать ответ ${m('(x; y)')}</div></div>
+<div class="bad"><b>Ловушка:</b> подставить выражение в то же уравнение, из которого его получили. Выйдет что-то вроде ${m('7 = 7')} — верно, но бесполезно.</div>`},
+{h:'Пример 1 — как у доски',html:`${sysHTML({show:[m('y - 2x = 1'),m('3x + y = 11')]})}
+<div class="steps"><div class="st rv"><b>1.</b> Из 1-го: ${m('y = 1 + 2x')}</div>
+<div class="st rv"><b>2.</b> Во 2-е: ${m('3x + (1 + 2x) = 11')}</div>
+<div class="st rv"><b>3.</b> ${m('3x + 1 + 2x = 11')} → ${m('5x = 10')} → ${m('x = 2')}</div>
+<div class="st rv"><b>4.</b> ${m('y = 1 + 2*2 = 5')}</div>
+<div class="st rv"><b>5.</b> Проверка: ${m('5 - 4 = 1')} ✓, ${m('6 + 5 = 11')} ✓. <b>Ответ:</b> ${m('(2; 5)')}</div></div>`},
+{h:'Пример 2 — выражаем x',html:`${sysHTML({show:[m('x + 2y = 8'),m('3x - y = 3')]})}
+<div class="steps"><div class="st rv"><b>1.</b> Из 1-го: ${m('x = 8 - 2y')}</div>
+<div class="st rv"><b>2.</b> Во 2-е: ${m('3(8 - 2y) - y = 3')}</div>
+<div class="st rv"><b>3.</b> ${m('24 - 6y - y = 3')} → ${m('-7y = -21')} → ${m('y = 3')}</div>
+<div class="st rv"><b>4.</b> ${m('x = 8 - 2*3 = 2')}</div>
+<div class="st rv"><b>5.</b> Проверка: ${m('2 + 6 = 8')} ✓, ${m('6 - 3 = 3')} ✓. <b>Ответ:</b> ${m('(2; 3)')} — сначала x, потом y.</div></div>`}],
+tasks:()=>[
+YN(`Пара ${m('(3; 4)')} — решение системы ${sysHTML({show:[m('x + y = 7'),m('2x - y = 2')]})}`,true,`${m('3 + 4 = 7')} ✓ и ${m('6 - 4 = 2')} ✓.`),
+YN(`Пара ${m('(6; 1)')} — решение системы ${sysHTML({show:[m('x + y = 7'),m('x - y = 3')]})}`,false,`В 1-е подходит, а во 2-е нет: ${m('6 - 1 = 5')}, а не 3.`),
+{type:'order',q:'Расставь шаги метода подстановки по порядку. Нажимай по очереди.',items:['Выразить одну букву из одного уравнения','Подставить выражение в другое уравнение','Решить уравнение с одной буквой','Найти вторую букву','Проверить и записать ответ'],why:'Выразить → подставить → решить → найти вторую → проверить.'},
+C('Куда подставляем выражение?',['В другое уравнение системы','В то же уравнение, из которого выразили','В любое, без разницы'],0,'Только в другое. В том же получится бесполезное верное равенство.'),
+C(`Из ${m('x + y = 7')} выразили ${m('y = 7 - x')} и подставили туда же: ${m('x + 7 - x = 7')}, вышло ${m('7 = 7')}. Что случилось?`,['Подставили не в то уравнение','Система не имеет решений','x = 7'],0,'Выражение надо было подставить во второе уравнение.'),
+C(`${sysHTML({show:[m('y = 3x'),m('x + y = 8')]})}Что получится после подстановки?`,[m('x + 3x = 8'),m('3x + y = 8'),m('x + y = 3x'),m('y + 3x = 8')],0,`${m('x + 3x = 8')} → ${m('4x = 8')} → ${m('x = 2')}, ${m('y = 6')}.`)]},
+
+/* ---------- 11 ---------- */
+{id:'m11',part:2,title:'Подставь правильно',sub:'Скобки, знаки и раскрытие',
+brief:[
+{h:'Подставляем в скобках',html:`${sysHTML({show:[m('x + y = 4'),m('2x - 3y = 8')]})}
+<div class="steps"><div class="st">Из 1-го: ${m('y = 4 - x')}</div>
+<div class="st rv">Во 2-е: ${m('2x - 3(4 - x) = 8')}</div>
+<div class="st rv">Раскрываем: ${m('2x - 12 + 3x = 8')} <span class="note">−3 умножили на 4 и на −x</span></div>
+<div class="st rv">${m('5x = 20')}, ${m('x = 4')}, ${m('y = 0')}</div></div>
+<div class="bad rv"><b>Без скобок:</b> ${m('2x - 3*4 - x = 8')} ✗. Здесь −3 умножили только на 4, а на x — нет.</div>`},
+{h:'Напоминание: раскрытие скобок',html:`<div class="tblw"><table class="t"><tr><th>Было</th><th>Стало</th><th>Почему</th></tr>
+<tr><td>${m('3(5 - x)')}</td><td>${m('15 - 3x')}</td><td>3 умножаем на каждый член</td></tr>
+<tr><td>${m('-2(4 - x)')}</td><td>${m('-8 + 2x')}</td><td>минус на минус — плюс</td></tr>
+<tr><td>${m('-(2y + 1)')}</td><td>${m('-2y - 1')}</td><td>минус перед скобкой меняет все знаки</td></tr>
+<tr><td>${m('+(7 - 3x)')}</td><td>${m('7 - 3x')}</td><td>плюс перед скобкой ничего не меняет</td></tr></table></div>
+<div class="rule"><div class="rule-h"><mark>Чек-лист подстановки</mark></div><ol><li>Подставляю в <b>другое</b> уравнение?</li><li>Выражение взято в <b>скобки</b>?</li><li>Число перед скобкой умножил на <b>каждый</b> член?</li></ol></div>`}],
+tasks:()=>[...Array.from({length:5},genSubChoice),
+NUM(`Реши: ${m('3x + 2(5 - x) = 14')}`,4,`${m('3x + 10 - 2x = 14')} → ${m('x = 4')}.`,'Раскрой скобки: 2·5 и 2·(−x).',m('x =')),
+NUM(`Реши: ${m('x - 2(3 - x) = 9')}`,5,`${m('x - 6 + 2x = 9')} → ${m('3x = 15')} → ${m('x = 5')}.`,'−2·3 = −6, −2·(−x) = +2x.',m('x =')),
+NUM(`Реши: ${m('4y - (2y + 1) = 7')}`,4,`${m('4y - 2y - 1 = 7')} → ${m('2y = 8')} → ${m('y = 4')}.`,'Минус перед скобкой меняет оба знака.',m('y =')),
+NUM(`Реши: ${m('5x + 3(1 - 2x) = 0')}`,3,`${m('5x + 3 - 6x = 0')} → ${m('-x = -3')} → ${m('x = 3')}.`,'3·1 = 3, 3·(−2x) = −6x.',m('x ='))]},
+
+/* ---------- 12 ---------- */
+{id:'m12',part:2,title:'Решаем вместе',sub:'Пошаговый тренажёр: все пять шагов',
+brief:[{h:'Тренажёр ведёт за руку',html:`<p>Сейчас ты решишь четыре системы целиком. Тренажёр идёт по шагам и проверяет каждый:</p>
+<div class="flow"><div><b>1</b>выбираешь, что и откуда выражать</div><div><b>2</b>пишешь выражение</div><div><b>3</b>выбираешь правильную подстановку</div><div><b>4</b>находишь первую букву</div><div><b>5</b>находишь вторую и проверяешь</div></div>
+<p>Держи рядом тетрадь: раскрывать скобки и считать удобнее на бумаге. Если застрял — нажми «Показать, как раскрыть».</p>`}],
+tasks:()=>[{type:'sys',sys:{eqs:[mkEq({x:1,y:1},7),mkEq({x:2,y:-1},2)],sol:{x:F(3),y:F(4)}}},{type:'sys',sys:genSys()},{type:'sys',sys:genSys()},{type:'sys',sys:genSys()}]},
+
+/* ---------- 13 ---------- */
+{id:'m13',part:2,title:'Финальный босс',sub:'Только ответ. Решаешь в тетради',boss:true,
+brief:[{h:'Босс-уровень',html:`<p>Пять систем. Решай методом подстановки в тетради, сюда вводи только ${m('x')} и ${m('y')}.</p>
+<div class="rule"><div class="rule-h"><mark>Перед вводом</mark></div>Сделай проверку: подставь оба числа в <b>оба</b> уравнения. Если хоть одно не сходится — ищи ошибку.</div>
+<p>Подсказка есть, но ответ с подсказкой приносит меньше XP. Если ответ неверный, тренажёр покажет, в каком уравнении он не сходится.</p>`}],
+tasks:()=>[{type:'boss',sys:{eqs:[mkEq({x:-2,y:1},-1),mkEq({x:3,y:2},12)],show:[m('y = 2x - 1'),m('3x + 2y = 12')],sol:{x:F(2),y:F(3)}}},
+{type:'boss',sys:{eqs:[mkEq({x:1,y:-3},1),mkEq({x:2,y:1},9)],sol:{x:F(4),y:F(1)}}},{type:'boss',sys:genSys()},{type:'boss',sys:genSys()},{type:'boss',sys:genSys()}]}
+];
+
+/* ================= навигация ================= */
+const view=$('#view');let R=null;
+function setNav(w){$('#nav-map').setAttribute('aria-pressed',w==='map');$('#nav-ref').setAttribute('aria-pressed',w==='ref')}
+const unlocked=i=>S.all||i===0||S.stars[MISSIONS[i-1].id]>0;
+function starsHTML(n,cls='mstars'){return`<span class="${cls}">${[0,1,2].map(i=>`<span class="${i<n?'on':''}">★</span>`).join('')}</span>`}
+function renderMap(){R=null;setNav('map');updateHeader();
+  const part=(p,h,eb)=>`<section class="part"><div class="part-h"><span class="eyebrow">${eb}</span><h2>${h}</h2></div><div class="mlist">${MISSIONS.map((ms,i)=>({ms,i})).filter(o=>o.ms.part===p).map(({ms,i})=>{
+    const s=S.stars[ms.id]||0,ok=unlocked(i);
+    return`<button class="mcard ${s?'done':''} ${ms.boss?'boss':''}" data-i="${i}" ${ok?'':'disabled'}><span class="mnum">${i+1}</span><span class="mt">${ms.title}</span><span class="ms">${ms.sub}</span>${ok?starsHTML(s):'<span class="lock">откроется после миссии '+i+'</span>'}</button>`}).join('')}</div></section>`;
+  view.innerHTML=`<div class="hero"><p><b>Задача игры</b> — научиться «освобождать» букву из уравнения: из ${m('3x + y = 7')} получать ${m('y = 7 - 3x')}. Это главный навык, на котором держится решение систем.</p><p>Проходи миссии по порядку. В каждой сначала брифинг с теорией, потом задания. За ответ с первой попытки — больше XP и звёзд.</p></div>
+  ${part(1,'Выразить одну переменную через другую','Часть 1')}${part(2,'Метод подстановки','Часть 2')}
+  <div class="teacher"><span>Для учителя:</span><button class="link" id="unl">${S.all?'Закрыть миссии по порядку':'Открыть все миссии'}</button><button class="link" id="rst">Сбросить прогресс</button></div>`;
+  view.querySelectorAll('.mcard').forEach(b=>b.onclick=()=>startMission(+b.dataset.i));
+  $('#unl').onclick=()=>{S.all=!S.all;save();renderMap()};
+  const rb=$('#rst');rb.onclick=()=>{if(rb.dataset.c){S={stars:{},xp:0,all:S.all};save();renderMap()}else{rb.dataset.c=1;rb.textContent='Точно сбросить? Нажми ещё раз'}};
+  window.scrollTo(0,0)}
+function renderRef(){R=null;setNav('ref');
+  view.innerHTML=`<div class="sheet theory">${MISSIONS.map((ms,i)=>`<div class="refm"><span class="eyebrow">Миссия ${i+1}</span><h2 class="rt">${ms.title}</h2>${ms.brief.map(p=>`<h3>${p.h}</h3>${p.html}`).join('')}</div>`).join('')}</div>`;
+  MISSIONS.forEach(ms=>ms.brief.forEach(p=>p.init&&p.init(view)));window.scrollTo(0,0)}
+$('#home').onclick=renderMap;$('#nav-map').onclick=renderMap;$('#nav-ref').onclick=renderRef;
+
+/* ================= миссия ================= */
+function startMission(i){const ms=MISSIONS[i];R={i,m:ms,page:0,tasks:null,ti:0,res:[],firstOk:0,xp:0,streak:0,answered:false};setNav('map');
+  view.innerHTML=`<div class="mtop"><button class="btn ghost" id="back">← Миссии</button><div><span class="eyebrow">Миссия ${i+1}${ms.boss?' · босс':''}</span><h1>${ms.title}</h1></div></div><div class="prog" id="prog"></div><div class="sheet" id="stage"></div>`;
+  $('#back').onclick=renderMap;runBrief()}
+function drawProg(){const p=$('#prog');if(!p||!R.tasks){if(p)p.innerHTML='';return}
+  p.innerHTML=R.tasks.map((_,k)=>`<i class="${k<R.res.length?({first:'ok',retry:'mid',fail:'bad'})[R.res[k]]:k===R.ti?'cur':''}"></i>`).join('')}
+function runBrief(){const pg=R.m.brief[R.page],stage=$('#stage'),last=R.page===R.m.brief.length-1;
+  stage.innerHTML=`<div class="brief"><span class="eyebrow">Брифинг · ${R.page+1} из ${R.m.brief.length}</span><h2>${pg.h}</h2><div class="theory">${pg.html}</div>
+  <div class="bnav">${R.page>0?'<button class="btn ghost" id="bprev">← Назад</button>':''}<button class="btn" id="bnext"></button><button class="link skip" id="bskip">Сразу к заданиям</button></div></div>`;
+  if(pg.init)pg.init(stage);
+  const rvs=[...stage.querySelectorAll('.rv')];rvs.forEach(r=>r.hidden=true);const bn=$('#bnext');
+  const upd=()=>{bn.textContent=rvs.some(r=>r.hidden)?'Следующий шаг ↓':(last?'К заданиям →':'Дальше →')};upd();
+  bn.onclick=()=>{const r=rvs.find(r=>r.hidden);if(r){r.hidden=false;r.classList.add('pop');upd();return}if(!last){R.page++;runBrief();window.scrollTo(0,0)}else startTasks()};
+  if($('#bprev'))$('#bprev').onclick=()=>{R.page--;runBrief()};$('#bskip').onclick=startTasks}
+function startTasks(){R.tasks=R.m.tasks();R.ti=0;R.res=[];runTask()}
+function runTask(){R.answered=false;drawProg();const t=R.tasks[R.ti];
+  $('#stage').innerHTML=`<div class="thead"><span class="eyebrow">Задание ${R.ti+1} из ${R.tasks.length}</span><span class="streak">${R.streak>=2?'Серия ×'+R.streak:''}</span></div><div id="tbox"></div><div id="fb" class="fb" hidden></div>`;
+  TYPES[t.type](t,$('#tbox'),(res,extra)=>finish(res,t,extra));window.scrollTo({top:0})}
+const PRAISE=['Точно!','Верно!','Отлично!','Так держать!','В яблочко!','Чисто сработано!'];
+function say(kind,html){const fb=$('#fb');if(!fb||R.answered)return;fb.hidden=false;fb.className='fb '+kind;fb.innerHTML=html}
+function finish(res,t,extra){if(R.answered)return;R.answered=true;R.res.push(res);let gain=0;
+  if(res==='first'){gain=10;R.firstOk++;R.streak++;if(R.streak>=3)gain+=2*Math.min(R.streak-2,5)}else{R.streak=0;if(res==='retry')gain=5}
+  R.xp+=gain;S.xp+=gain;save();updateHeader();drawProg();
+  const fb=$('#fb');fb.hidden=false;fb.className='fb '+(res==='fail'?'bad':'ok');
+  const head=res==='first'?pick(PRAISE):res==='retry'?'Получилось!':'Разберём, как надо.';
+  fb.innerHTML=`<div class="fb-t">${head}${gain?` <span class="xp">+${gain} XP</span>`:''}</div>${extra||''}${t.why?`<div class="fb-why">${t.why}</div>`:''}<button class="btn" id="next">${R.ti<R.tasks.length-1?'Дальше →':'Итоги миссии →'}</button>`;
+  $('#next').onclick=()=>{R.ti++;R.ti<R.tasks.length?runTask():endMission()};$('#next').focus({preventScroll:true})}
+function endMission(){const n=R.tasks.length,r=R.firstOk/n,st=r>=.85?3:r>=.6?2:1,id=R.m.id,prev=S.stars[id]||0;
+  S.stars[id]=Math.max(prev,st);save();updateHeader();drawProg();const nx=R.i+1<MISSIONS.length&&unlocked(R.i+1);
+  $('#stage').innerHTML=`<div class="end">${starsHTML(st,'bigstars')}<h2>${st===3?'Миссия пройдена блестяще':st===2?'Миссия пройдена':'Миссия пройдена — можно лучше'}</h2>
+  <p>С первой попытки: <b>${R.firstOk} из ${n}</b> · заработано <b>${R.xp} XP</b></p>${st<3?'<p class="note">Три звезды — когда с первой попытки решено почти всё. Пройди ещё раз: задания с генератором будут новые.</p>':''}
+  <div class="row">${nx?'<button class="btn" id="enext">Следующая миссия →</button>':''}<button class="btn ghost" id="eagain">Пройти ещё раз</button><button class="btn ghost" id="emap">К миссиям</button></div></div>`;
+  if(nx)$('#enext').onclick=()=>startMission(R.i+1);$('#eagain').onclick=()=>startMission(R.i);$('#emap').onclick=renderMap;if(st>=2)confetti()}
+
+/* ================= типы заданий ================= */
+const KEYPAD=`<div class="kp" aria-label="Кнопки для ввода">${['x','y','-','+','/','(',')'].map(k=>`<button type="button" data-k="${k}">${k==='-'?'−':k}</button>`).join('')}<button type="button" data-k="del" aria-label="Стереть">⌫</button></div>`;
+function bindKeypad(box,inp){box.querySelectorAll('.kp button').forEach(b=>b.onclick=()=>{const k=b.dataset.k;
+  if(k==='del')inp.value=inp.value.slice(0,-1);else inp.value+=k;inp.focus()})}
+function checkLin(raw,t,ans){let s=String(raw).trim();if(!s)return{parse:true,msg:'Впиши выражение.'};
+  s=s.replace(/[−–—]/g,'-').replace(/[хХ]/g,'x').replace(/[уУ]/g,'y').toLowerCase().replace(/\s+/g,'');
+  if(s.includes('=')){const[a,b]=s.split('=');if(a===t)s=b;else if(b===t)s=a;else return{parse:true,msg:`Запиши ответ в виде ${t} = …`}}
+  let v;try{v=parseLin(s)}catch(e){return{parse:true,msg:'Не получается прочитать запись. Примеры: <b>7-3x</b>, <b>2y+5</b>, <b>(7-2x)/3</b>.'}}
+  if(!fz(v[t]))return{msg:`В ответе не должно быть ${vI(t)} — его мы и выражаем.`};
+  if(lEq(v,ans))return{ok:true};const w=other(t);
+  if(lEq(v,lScale(ans,F(-1))))return{msg:'Все знаки наоборот. Не забыл про минус перед буквой?'};
+  if(feq(v.c,ans.c)&&feq(v[w],fneg(ans[w])))return{msg:`Число верное, а знак у члена с ${vI(w)} перепутан. Проверь перенос.`};
+  if(feq(v[w],ans[w])&&feq(v.c,fneg(ans.c)))return{msg:`Член с ${vI(w)} верный, а у числа знак перепутан.`};
+  if(feq(v.c,ans.c)||feq(v[w],ans[w]))return{msg:'Один член верный, другой нет. Не забыл разделить на коэффициент каждый член?'};
+  return{msg:'Пока неверно. Сделай по шагам: перенеси лишнее, потом раздели на коэффициент.'}}
+function readNum(raw){let v;try{v=parseLin(raw)}catch(e){return null}return lConst(v)?v.c:null}
+
+const TYPES={
+choice(t,box,done){let idx=t.opts.map((_,i)=>i);if(!t.keep)idx=shuffle(idx);let tries=0;
+  box.innerHTML=`<div class="q">${t.q}</div><div class="opts ${t.opts.length===2?'two':''}">${idx.map(i=>`<button class="opt" data-i="${i}">${t.opts[i]}</button>`).join('')}</div>`;
+  const all=[...box.querySelectorAll('.opt')];const lock=()=>all.forEach(b=>b.disabled=true);
+  all.forEach(b=>b.onclick=()=>{if(R.answered)return;const i=+b.dataset.i;
+    if(i===t.ans){b.classList.add('right');lock();done(tries?'retry':'first')}
+    else{tries++;b.classList.add('wrong','shake');b.disabled=true;
+      if(tries>=2||t.opts.length<=2){box.querySelector(`.opt[data-i="${t.ans}"]`).classList.add('right');lock();done('fail')}
+      else say('bad',`<div class="fb-t">Не то.</div>${t.hint||'Подумай ещё раз.'}`)}})},
+input(t,box,done){let tries=0;const lin=t.kind==='lin';
+  box.innerHTML=`<div class="q">${t.q}</div><div class="inrow">${lin?`<span class="m pre"><i>${t.t}</i> =</span>`:(t.pre?`<span class="pre">${t.pre}</span>`:'')}<input id="ans" class="inp" autocomplete="off" spellcheck="false" placeholder="${lin?'например 7-3x':'число'}" aria-label="Ответ"><button class="btn" id="chk">Проверить</button></div>${lin?KEYPAD+'<div class="tip">Дробь: (7-2x)/3. Порядок членов не важен.</div>':''}`;
+  const inp=$('#ans');if(lin)bindKeypad(box,inp);
+  const ansHTML=lin?mh(`<i>${t.t}</i> = ${linHTML(t.ans)}`):mh(numHTML(t.ans));
+  const check=()=>{if(R.answered)return;let res;
+    if(lin)res=checkLin(inp.value,t.t,t.ans);else{const v=readNum(inp.value);res=v===null?{parse:true,msg:'Введи число, например <b>-3</b> или <b>5/2</b>.'}:feq(v,t.ans)?{ok:true}:{msg:'Неверно.'}}
+    if(res.parse){say('info',res.msg);return}
+    if(res.ok){inp.classList.add('okb');inp.disabled=true;$('#chk').disabled=true;done(tries?'retry':'first')}
+    else{tries++;inp.classList.add('badb');box.querySelector('.inrow').classList.add('shake');setTimeout(()=>box.querySelector('.inrow')?.classList.remove('shake'),400);
+      if(tries>=2){inp.disabled=true;$('#chk').disabled=true;done('fail',`<div class="fb-why">Правильный ответ: ${ansHTML}</div>`)}
+      else say('bad',`<div class="fb-t">Ещё попытка.</div>${res.msg}${t.hint?`<div class="tip">Подсказка: ${t.hint}</div>`:''}`)}};
+  $('#chk').onclick=check;inp.onkeydown=e=>{if(e.key==='Enter')check()};inp.oninput=()=>inp.classList.remove('badb');setTimeout(()=>inp.focus({preventScroll:true}),50)},
+puzzle(t,box,done){let st={L:clone(t.L),R:clone(t.R)};st.L.forEach(x=>x.k=F(x.k.n,x.k.d));st.R.forEach(x=>x.k=F(x.k.n,x.k.d));
+  const hist=[],log=[eqStrHTML(st)];let pm=0,won=false;const T=t.t;
+  box.innerHTML=`<div class="q">${t.q||`Освободи <span class="tg">${T}</span>: оставь её одну в левой части.`}</div>
+  <div class="board" id="pzb"></div><div class="ask" id="pza"></div>
+  <div class="pz-tools"><button class="btn" id="pdiv">÷ Разделить обе части</button><button class="btn" id="pswap">⇄ Поменять части местами</button><button class="btn ghost" id="pundo">↶ Отменить</button><button class="btn ghost" id="phint">Подсказка</button></div>
+  <details class="draftw" open><summary>Черновик</summary><ol class="draft" id="pzd"></ol></details>`;
+  const ask=$('#pza'),bd=$('#pzb');
+  const chipLabel=(x,first)=>termHTML(x.k,x.v,first).replace(/^ /,'');
+  function draw(){const side=s=>st[s].length?st[s].map((x,i)=>`<button class="chip ${x.v===T?'t':''} ${x.fresh?'arr':''}" data-s="${s}" data-i="${i}">${chipLabel(x,i===0)}</button>`).join(''):'<span class="zero">0</span>';
+    bd.innerHTML=`<div class="side">${side('L')}</div><span class="eqs">=</span><div class="side">${side('R')}</div>`;
+    st.L.forEach(x=>delete x.fresh);st.R.forEach(x=>delete x.fresh);
+    $('#pzd').innerHTML=log.map(l=>`<li>${l}</li>`).join('');
+    $('#pdiv').disabled=won||!divSide();$('#pswap').disabled=won||!canSwap();$('#pundo').disabled=won||!hist.length;$('#phint').disabled=won;
+    bd.querySelectorAll('.chip').forEach(c=>c.onclick=()=>clickChip(c.dataset.s,+c.dataset.i,c))}
+  const divSide=()=>['L','R'].find(s=>st[s].length===1&&st[s][0].v===T&&!feq(st[s][0].k,ONE)&&!st[s==='L'?'R':'L'].some(x=>x.v===T));
+  const canSwap=()=>st.R.some(x=>x.v===T)&&!st.L.some(x=>x.v===T);
+  function restoreF(o){['L','R'].forEach(s=>o[s].forEach(x=>x.k=F(x.k.n,x.k.d)));return o}
+  function clickChip(s,i,el){if(won)return;const x=st[s][i],o=s==='L'?'R':'L';
+    if(x.v===T&&st[s].length===1){say('info',`Это ${vI(T)} — её мы освобождаем. Двигай то, что ей мешает.`);return}
+    bd.querySelectorAll('.chip').forEach(c=>c.classList.remove('sel'));el.classList.add('sel');
+    if(!t.signQ){move(s,i);return}
+    const lbl=termHTML(x.k,x.v,false).trim(),opts=shuffle([{k:x.k,ok:false},{k:fneg(x.k),ok:true}]);
+    ask.innerHTML=`<div class="askq">Переносим ${mh(lbl)} в ${o==='R'?'правую':'левую'} часть. Каким он станет?</div><div class="opts two">${opts.map((p,j)=>`<button class="opt" data-j="${j}">${mh(termHTML(p.k,x.v,false).trim())}</button>`).join('')}</div>`;
+    ask.querySelectorAll('.opt').forEach(b=>b.onclick=()=>{const p=opts[+b.dataset.j];
+      if(p.ok){ask.innerHTML='';$('#fb').hidden=true;move(s,i)}else{pm++;b.classList.add('wrong','shake');b.disabled=true;
+        say('bad','<div class="fb-t">Знак должен поменяться.</div>При переносе через «=» плюс становится минусом, а минус — плюсом.')}})}
+  function move(s,i){const o=s==='L'?'R':'L';const x=st[s].splice(i,1)[0];const nk=fneg(x.k);let note=`перенесли ${mh(termHTML(x.k,x.v,true))} → ${mh(termHTML(nk,x.v,true))}`;
+    const j=st[o].findIndex(d=>d.v===x.v);
+    if(j>=0){st[o][j].k=fa(st[o][j].k,nk);st[o][j].fresh=true;note+=', сложили подобные';if(fz(st[o][j].k))st[o].splice(j,1)}else st[o].push({k:nk,v:x.v,fresh:true});
+    hist.push({st:snap,log:log.length});log.push(eqStrHTML(st)+` <span class="note">${note}</span>`);draw();checkWin()}
+  let snap=clone(st);
+  const _draw=draw;draw=function(){_draw();snap=clone(st)};
+  $('#pdiv').onclick=()=>{const s=divSide();if(!s)return;const k=st[s][0].k;
+    const doDiv=()=>{hist.push({st:snap,log:log.length});['L','R'].forEach(q=>st[q]=st[q].map(x=>({k:fd(x.k,k),v:x.v,fresh:true})));
+      log.push(eqStrHTML(st)+` <span class="note">разделили всё на ${numHTML(k)}</span>`);ask.innerHTML='';draw();checkWin()};
+    if(!t.divQ){doDiv();return}
+    const cand=[k,fneg(k)];const ot=st[s==='L'?'R':'L'].find(x=>x.v!=='1'&&!feq(fabs(x.k),fabs(k)));if(ot)cand.push(ot.k);else if(!isUnit(k))cand.push(F(Math.abs(k.n)+1));
+    const opts=shuffle(cand.map(c=>({c,ok:feq(c,k)})));
+    ask.innerHTML=`<div class="askq">На какое число разделим обе части, чтобы перед ${vI(T)} остался коэффициент 1?</div><div class="opts">${opts.map((p,j)=>`<button class="opt" data-j="${j}">${mh(numHTML(p.c))}</button>`).join('')}</div>`;
+    ask.querySelectorAll('.opt').forEach(b=>b.onclick=()=>{const p=opts[+b.dataset.j];if(p.ok){$('#fb').hidden=true;doDiv()}else{pm++;b.classList.add('wrong','shake');b.disabled=true;
+      say('bad',`<div class="fb-t">Не то число.</div>Делим на коэффициент перед ${vI(T)} <b>вместе с его знаком</b>.`)}})};
+  $('#pswap').onclick=()=>{if(!canSwap())return;hist.push({st:snap,log:log.length});st={L:st.R,R:st.L};log.push(eqStrHTML(st)+' <span class="note">поменяли части местами</span>');ask.innerHTML='';draw();checkWin()};
+  $('#pundo').onclick=()=>{const h=hist.pop();if(!h)return;st=restoreF(clone(h.st));log.length=h.log;ask.innerHTML='';$('#fb').hidden=true;draw()};
+  $('#phint').onclick=()=>{const has=s=>st[s].some(x=>x.v===T);let msg;
+    if(has('L')&&has('R'))msg=`${vI(T)} есть в обеих частях. Перенеси ${vI(T)} из правой части в левую.`;
+    else{const s=has('L')?'L':'R',rest=st[s].filter(x=>x.v!==T);
+      if(rest.length)msg=`Рядом с ${vI(T)} мешает ${mh(termHTML(rest[0].k,rest[0].v,true))}. Нажми на него, чтобы перенести.`;
+      else if(!feq(st[s][0].k,ONE))msg=`${vI(T)} одна, но перед ней ${mh(numHTML(st[s][0].k))}. Нажми «Разделить обе части».`;
+      else msg=`${vI(T)} свободна, но стоит справа. Нажми «Поменять части местами».`}
+    say('info',msg)};
+  function checkWin(){if(st.L.length===1&&st.L[0].v===T&&feq(st.L[0].k,ONE)&&!st.R.some(x=>x.v===T)){won=true;draw();
+    done(pm===0?'first':'retry',`<div class="fb-why">${vI(T)} освобождена: ${eqStrHTML(st)}</div>`)}}
+  draw()},
+error(t,box,done){let tries=0;
+  box.innerHTML=`<div class="q">Найди строчку, где <b>впервые</b> появилась ошибка. Если всё верно — нажми «Ошибки нет».</div>
+  <ol class="chain"><li class="c0">${m(t.start)} <span class="note">исходное уравнение</span></li>${t.lines.map((l,i)=>`<li><button class="cline" data-i="${i}">${m(l)}</button></li>`).join('')}</ol>
+  <button class="opt" data-i="-1" style="max-width:260px">Ошибки нет</button>`;
+  const all=[...box.querySelectorAll('[data-i]')];const lock=()=>all.forEach(b=>b.disabled=true);
+  all.forEach(b=>b.onclick=()=>{if(R.answered)return;const i=+b.dataset.i;
+    if(i===t.wrong){b.classList.add('right');lock();done(tries?'retry':'first')}
+    else{tries++;b.classList.add('wrong','shake');b.disabled=true;
+      if(tries>=2){box.querySelector(`[data-i="${t.wrong}"]`).classList.add('right');lock();done('fail')}
+      else say('bad',`<div class="fb-t">${i===-1?'Ошибка есть.':'Эта строчка верная.'}</div>Проверь каждый переход: знак при переносе, деление каждого члена, минус перед буквой.`)}})},
+order(t,box,done){let pos=0,mist=0;const sh=shuffle(t.items.map((x,i)=>({x,i})));
+  box.innerHTML=`<div class="q">${t.q}</div><ol class="ordlist" id="ol"></ol><div class="ordbox">${sh.map(o=>`<button class="opt" data-i="${o.i}">${o.x}</button>`).join('')}</div>`;
+  box.querySelectorAll('.ordbox .opt').forEach(b=>b.onclick=()=>{if(R.answered)return;const i=+b.dataset.i;
+    if(i===pos){pos++;b.remove();$('#ol').insertAdjacentHTML('beforeend',`<li>${t.items[i]}</li>`);$('#fb').hidden=true;if(pos===t.items.length)done(mist===0?'first':mist<=2?'retry':'fail')}
+    else{mist++;b.classList.add('shake');setTimeout(()=>b.classList.remove('shake'),400);say('bad',`<div class="fb-t">Не этот шаг.</div>Что нужно сделать <b>${pos===0?'в самом начале':'после шага «'+t.items[pos-1].toLowerCase()+'»'}</b>?`)}})},
+table(t,box,done){let tries=0;
+  box.innerHTML=`<div class="q">${t.q}</div><div class="tblw"><table class="t ttab"><tr><th>${m(t.col[0])}</th>${t.rows.map(r=>`<td>${m(String(r[0]))}</td>`).join('')}</tr><tr><th>${m(t.col[1])}</th>${t.rows.map((r,i)=>`<td><input class="inp" id="tc${i}" autocomplete="off" aria-label="${t.col[1]} при ${t.col[0]} = ${r[0]}"></td>`).join('')}</tr></table></div><button class="btn" id="chk">Проверить</button>`;
+  const ins=t.rows.map((_,i)=>$('#tc'+i));
+  $('#chk').onclick=()=>{if(R.answered)return;let bad=0,empty=false;
+    ins.forEach((inp,i)=>{const v=readNum(inp.value);if(v===null){empty=true;return}const ok=feq(v,F(t.rows[i][1]));inp.classList.toggle('okb',ok);inp.classList.toggle('badb',!ok);if(!ok)bad++});
+    if(empty){say('info','Заполни все клетки числами.');return}
+    if(!bad){ins.forEach(i=>i.disabled=true);$('#chk').disabled=true;done(tries?'retry':'first');return}
+    tries++;if(tries>=2){ins.forEach((inp,i)=>{inp.value=String(t.rows[i][1]).replace('-','−');inp.disabled=true});$('#chk').disabled=true;done('fail')}
+    else say('bad',`<div class="fb-t">Красные клетки неверны (${bad}).</div>Подставляй ${m(t.col[0])} в формулу. Отрицательные числа — в скобках.`)}},
+sys(t,box,done){const sys=t.sys;let pm=0;
+  box.innerHTML=`<div class="q">Реши систему методом подстановки. Идём по шагам.</div>${sysHTML(sys)}<div id="gs"></div>`;const gs=$('#gs');
+  function stepBox(title){const d=document.createElement('div');d.className='gstep';d.innerHTML=`<div class="gst">${title}</div><div class="gb"></div>`;gs.appendChild(d);d.scrollIntoView({block:'nearest',behavior:'smooth'});return d}
+  const sfb=(d,kind,html)=>{const f=d.querySelector('.sfb');f.className='sfb '+kind;f.innerHTML=html};
+  // шаг 1
+  (()=>{const d=stepBox('Шаг 1. Что и откуда выражаем?'),b=d.querySelector('.gb');const opts=[[0,'x'],[0,'y'],[1,'x'],[1,'y']];
+    b.innerHTML=`<p>Найди букву с коэффициентом 1 или −1.</p><div class="opts">${opts.map(([e,v],i)=>`<button class="opt" data-i="${i}">${ordFrom(e)} уравнения: ${vI(v)}</button>`).join('')}</div><div class="sfb"></div>`;
+    b.querySelectorAll('.opt').forEach(x=>x.onclick=()=>{const[e,v]=opts[+x.dataset.i];
+      if(isUnit(sys.eqs[e][v])){x.classList.add('right');b.querySelectorAll('.opt').forEach(y=>y.disabled=true);d.classList.add('done');step2(e,v)}
+      else{pm++;x.classList.add('wrong');x.disabled=true;sfb(b,'bad',`Можно, но перед ${vI(v)} стоит ${mh(numHTML(sys.eqs[e][v]))} — получатся дроби. Найди коэффициент 1 или −1.`)}})})();
+  function step2(e,v){const d=stepBox(`Шаг 2. Вырази ${v} ${ordFrom(e)} уравнения`),b=d.querySelector('.gb'),ex=exprFrom(sys.eqs[e],v);let tries=0;
+    b.innerHTML=`<p>${eqHTML(sys.eqs[e])}</p><div class="inrow"><span class="m pre"><i>${v}</i> =</span><input class="inp" id="g2" autocomplete="off" spellcheck="false" placeholder="выражение"><button class="btn" id="g2b">Проверить</button></div>${KEYPAD}<div class="sfb"></div>`;
+    const inp=b.querySelector('#g2');bindKeypad(b,inp);setTimeout(()=>inp.focus({preventScroll:true}),60);
+    const go=()=>{const r=checkLin(inp.value,v,ex);if(r.parse){sfb(b,'',r.msg);return}
+      if(r.ok||++tries>=2){if(!r.ok)pm++;inp.disabled=true;b.querySelector('#g2b').disabled=true;sfb(b,r.ok?'ok':'bad',(r.ok?'Верно: ':'Правильно так: ')+mh(`<i>${v}</i> = ${linHTML(ex)}`));d.classList.add('done');step3(e,v,ex)}
+      else{pm++;sfb(b,'bad',r.msg)}};
+    b.querySelector('#g2b').onclick=go;inp.onkeydown=ev=>{if(ev.key==='Enter')go()}}
+  function step3(e,v,ex){const j=1-e,d=stepBox(`Шаг 3. Подставь ${ordTo(j)} уравнение`),b=d.querySelector('.gb');const raw=subOptions(sys.eqs,e,v,ex);const ok=raw[0];const opts=shuffle(raw);let tries=0;
+    b.innerHTML=`<p>${ordTo(j)[0].toUpperCase()+ordTo(j).slice(1)}: ${eqHTML(sys.eqs[j])}. Вместо ${vI(v)} пишем ${mh('('+linHTML(ex)+')')}.</p><div class="opts">${opts.map((o,i)=>`<button class="opt" data-i="${i}">${o}</button>`).join('')}</div><div class="sfb"></div>`;
+    b.querySelectorAll('.opt').forEach(x=>x.onclick=()=>{const good=opts[+x.dataset.i]===ok;
+      if(good||tries>=1){if(!good){pm++;x.classList.add('wrong')}const right=[...b.querySelectorAll('.opt')].find(y=>opts[+y.dataset.i]===ok);right.classList.add('right');
+        b.querySelectorAll('.opt').forEach(y=>y.disabled=true);d.classList.add('done');step4(e,v,ex)}
+      else{tries++;pm++;x.classList.add('wrong');x.disabled=true;sfb(b,'bad','Проверь: другое ли уравнение, есть ли скобки, те ли знаки внутри.')}})}
+  function step4(e,v,ex){const dd=(()=>{const w=other(v),j=1-e,q=sys.eqs[j];const A=fa(q[w],fm(q[v],ex[w])),K=fm(q[v],ex.c),Cc=fs(q.c,K);
+      const exp=[];for(const u of['x','y']){if(fz(q[u]))continue;if(u===v)linTerms(ex).forEach(t=>exp.push({k:fm(q[v],t.k),v:t.v}));else exp.push({k:q[u],v:u})}return{w,q,A,K,Cc,exp,w0:fd(Cc,A)}})();
+    const d=stepBox(`Шаг 4. Реши уравнение и найди ${dd.w}`),b=d.querySelector('.gb');let tries=0;
+    const HL=[subHTML(dd.q,v,ex,'ok'),`${mh(termsHTML(dd.exp.filter(t=>!fz(t.k)))+' = '+numHTML(dd.q.c))} <span class="note">раскрыли скобки</span>`,`${mh(termHTML(dd.A,dd.w,true)+(fz(dd.K)?'':termHTML(dd.K,'1',false))+' = '+numHTML(dd.q.c))} <span class="note">привели подобные</span>`,mh(termHTML(dd.A,dd.w,true)+' = '+numHTML(dd.Cc)),mh(`<i>${dd.w}</i> = ${numHTML(dd.w0)}`)];
+    const how=`<div class="lines">${HL.map(l=>`<div>${l}</div>`).join('')}</div>`;
+    b.innerHTML=`<div class="inrow"><span class="m pre"><i>${dd.w}</i> =</span><input class="inp sm" id="g4" autocomplete="off"><button class="btn" id="g4b">Проверить</button><button class="btn ghost" id="g4h">Показать, как раскрыть</button></div><div class="g4how"></div><div class="sfb"></div>`;
+    const inp=b.querySelector('#g4');setTimeout(()=>inp.focus({preventScroll:true}),60);
+    b.querySelector('#g4h').onclick=()=>{b.querySelector('.g4how').innerHTML=`<div class="lines">${HL.slice(0,3).map(l=>`<div>${l}</div>`).join('')}</div>`;b.querySelector('#g4h').disabled=true};
+    const go=()=>{const val=readNum(inp.value);if(val===null){sfb(b,'','Введи число.');return}const good=feq(val,dd.w0);
+      if(good||++tries>=2){if(!good)pm++;inp.disabled=true;b.querySelector('#g4b').disabled=true;b.querySelector('#g4h').disabled=true;b.querySelector('.g4how').innerHTML=how;sfb(b,good?'ok':'bad',good?'Верно!':'Вот решение по шагам.');d.classList.add('done');step5(v,ex,dd.w,dd.w0)}
+      else{pm++;sfb(b,'bad','Неверно. Раскрой скобки аккуратно: число перед скобкой умножается на каждый член.')}};
+    b.querySelector('#g4b').onclick=go;inp.onkeydown=ev=>{if(ev.key==='Enter')go()}}
+  function step5(v,ex,w,w0){const d=stepBox(`Шаг 5. Найди ${v} и проверь`),b=d.querySelector('.gb'),v0=sys.sol[v];let tries=0;
+    b.innerHTML=`<p>Подставь ${mh(`<i>${w}</i> = ${numHTML(w0)}`)} в формулу ${mh(`<i>${v}</i> = ${linHTML(ex)}`)}.</p><div class="inrow"><span class="m pre"><i>${v}</i> =</span><input class="inp sm" id="g5" autocomplete="off"><button class="btn" id="g5b">Проверить</button></div><div class="sfb"></div>`;
+    const inp=b.querySelector('#g5');setTimeout(()=>inp.focus({preventScroll:true}),60);
+    const go=()=>{const val=readNum(inp.value);if(val===null){sfb(b,'','Введи число.');return}const good=feq(val,v0);
+      if(good||++tries>=2){if(!good)pm++;inp.disabled=true;b.querySelector('#g5b').disabled=true;d.classList.add('done');
+        const c1=plugEqHTML(sys.eqs[0],sys.sol),c2=plugEqHTML(sys.eqs[1],sys.sol);
+        sfb(b,good?'ok':'bad',`${mh(`<i>${v}</i> = ${plugExprHTML(ex,w,w0)} = ${numHTML(v0)}`)}<div class="lines"><div>Проверка 1-го: ${c1.html} <span class="yes">✓</span></div><div>Проверка 2-го: ${c2.html} <span class="yes">✓</span></div></div>`);
+        done(pm===0?'first':pm<=2?'retry':'fail',`<div class="fb-why"><b>Ответ:</b> ${mh(`(${numHTML(sys.sol.x)}; ${numHTML(sys.sol.y)})`)}</div>`)}
+      else{pm++;sfb(b,'bad',`Неверно. Подставь ${numHTML(w0)} вместо ${w}${w0.n<0?' в скобках':''}.`)}};
+    b.querySelector('#g5b').onclick=go;inp.onkeydown=ev=>{if(ev.key==='Enter')go()}}},
+boss(t,box,done){const sys=t.sys;let tries=0,hints=0;const D=solveData(sys);
+  box.innerHTML=`<div class="q">Реши систему методом подстановки.</div>${sysHTML(sys)}<div class="inrow"><span class="m pre"><i>x</i> =</span><input id="bx" class="inp sm" autocomplete="off" aria-label="x"><span class="m pre"><i>y</i> =</span><input id="by" class="inp sm" autocomplete="off" aria-label="y"><button class="btn" id="chk">Проверить</button></div>
+  <div style="margin-top:10px"><button class="btn ghost" id="bh">Подсказка</button></div><div class="lines" id="bhl"></div>`;
+  $('#bh').onclick=()=>{hints++;const hl=$('#bhl');
+    if(hints===1)hl.innerHTML=`<div>${ordFrom(D.e)[0].toUpperCase()+ordFrom(D.e).slice(1)} уравнения удобно выразить ${vI(D.v)}: ${mh(`<i>${D.v}</i> = ${linHTML(D.ex)}`)}</div>`;
+    else{hl.insertAdjacentHTML('beforeend',`<div>Подставляем ${ordTo(D.j)}: ${subHTML(D.q,D.v,D.ex,'ok')}</div>`);$('#bh').disabled=true}};
+  const go=()=>{if(R.answered)return;const x=readNum($('#bx').value),y=readNum($('#by').value);if(x===null||y===null){say('info','Введи оба числа.');return}
+    if(feq(x,sys.sol.x)&&feq(y,sys.sol.y)){['#bx','#by','#chk','#bh'].forEach(s=>$(s).disabled=true);
+      done(tries||hints?'retry':'first',`<div class="fb-why">${mh(`(${numHTML(x)}; ${numHTML(y)})`)} подходит в оба уравнения.</div>`);return}
+    tries++;const sol={x,y},c=sys.eqs.map(e=>plugEqHTML(e,sol));
+    const diag=c.map((r,i)=>`<div>${i+1}-е: ${r.html} ${r.ok?'<span class="yes">✓</span>':`<span class="no">✗ должно быть ${numHTML(sys.eqs[i].c)}</span>`}</div>`).join('');
+    if(tries>=2){['#bx','#by','#chk','#bh'].forEach(s=>$(s).disabled=true);done('fail',`<div class="fb-why">Правильное решение:</div>${solveLines(sys)}`)}
+    else say('bad',`<div class="fb-t">Пара не подходит. Подставим твои числа:</div><div class="lines">${diag}</div><div class="tip">Ищи ошибку в тетради и попробуй ещё раз.</div>`)};
+  $('#chk').onclick=go;['#bx','#by'].forEach(s=>$(s).onkeydown=e=>{if(e.key==='Enter')go()})}
+};
+
+/* ================= конфетти ================= */
+function confetti(){if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;const c=$('#confetti');c.hidden=false;const ctx=c.getContext('2d');
+  c.width=innerWidth;c.height=innerHeight;const cs=getComputedStyle(document.documentElement);const cols=['--hl','--pen','--red','--ok'].map(v=>cs.getPropertyValue(v).trim());
+  const P=Array.from({length:120},()=>({x:Math.random()*c.width,y:-20-Math.random()*c.height*.4,vx:(Math.random()-.5)*3,vy:2+Math.random()*3,r:Math.random()*6.28,s:5+Math.random()*6,c:pick(cols)}));
+  let f=0;(function tick(){ctx.clearRect(0,0,c.width,c.height);P.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.r+=.1;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.r);ctx.fillStyle=p.c;ctx.fillRect(-p.s/2,-p.s/4,p.s,p.s/2);ctx.restore()});
+    if(++f<150)requestAnimationFrame(tick);else{ctx.clearRect(0,0,c.width,c.height);c.hidden=true}})()}
+
+renderMap();
+</script>
+
+</body>
+</html>
